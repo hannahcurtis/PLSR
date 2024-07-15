@@ -1,3 +1,5 @@
+# Algorithm to run PLSR model and select variables based on VIP score/AIC
+
 library(vip)
 library(pls)
 
