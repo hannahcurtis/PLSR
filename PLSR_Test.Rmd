@@ -1,0 +1,957 @@
+---
+title: "PLSR Test"
+author: "Hannah Curtis"
+date: "2024-04-01"
+output: html_document
+---
+read in variable file
+```{r}
+library(vip)
+library(caret)
+library("corrr")
+library(ggcorrplot)
+library("FactoMineR")
+library("factoextra")
+library("car")
+library("pls")
+library("plsdepot")
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+
+df_avg <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Seminar_vars.csv")
+df_storm <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+```
+
+Calculating z-score and removing outliers:
+```{r}
+# Write a function to calculate z-scores for each variable in the df_storm dataframe and remove any row of the data frame where the z-score is above 3 or below -3
+# I only want to calculate the z-scores of certain variables in the dataframe when considering outliers
+remove_outliers <- function(df) {
+  # Calculate z-scores for each variable in the dataframe
+  z_scores <- scale(df[, c("Max.Bounce", "Max.Bounce.Norm", "Decline.Rate.Norm", "Decline.Rate", "Inflow.Rate", "Inflow.Rate.Norm", "Temp.Variance.Norm", "Temp.Range.Norm", "Temp.Variance", "Temp.Range", "Urban.Baseflow", "Median.Water.Level", "Contant.Water.Level.6in", "Outlet.Water.Level", "Below.Outlet.Water.Level", "Water.Level.25.75.Quantile", "Water.Level.10.90.Quantile", "Pond.Skewness", "L.to.W.ratio", "Number.of.Outlets", "Pond.Age", "Total...Veg.Species", "X..Non.native.species.1", "LF.Outlet.Restrict", "HF.Outlet.Restrict", "LF.Outlet.Restrict.Norm", "HF.Outlet.Restrict.1", "Watershed.Area.m2", "Pond.Area.m2", "WA.PA", "Avg.Pond.Depth", "Max.Pond.Depth", "Res.Time", "Average.Watershed.Slope", "Impervious.Percent.Recalc", "Commercial.Percent", "Residential.Percent", "Greenspace.Percent", "Canopy.Percent", "Curve.Number", "Average.Development.Age", "avg_bd..g.cm3.", "avg_sed_cm", "per_om", "Runoff.Depth.in", "Runoff.Depth.Norm")])
+  
+  # Remove any row of the data frame where the z-score is above 3 or below -3
+  df <- df[apply(z_scores, 1, function(x) all(abs(x) < 3)), ]
+  
+  return(df)
+}
+
+df_outliers <- remove_outliers(df_storm)
+```
+
+Variable Groups
+```{r}
+#Hydrologic Variables:
+hyd_vars <- cbind(df_storm$Max.Bounce, df_storm$Rain.Amount, df_storm$Decline.Rate, df_storm$Inflow.Rate, df_storm$Inflow.Wat.Norm, df_storm$Inflow.Pond.Norm, df_storm$Temp.Variance, df_storm$Temp.Range, df_storm$Median.Water.Level, df_storm$Constant.Water.Level, df_storm$Contant.Water.Level.6in, df_storm$Outlet.Water.Level, df_storm$Below.Outlet.Water.Level, df_storm$Water.Level.25.75.Quantile, df_storm$Water.Level.10.90.Quantile, df_storm$Pond.Skewness)
+
+colnames(hyd_vars) <- c("Max.Bounce", "Rain.Amount", "Decline.Rate", "Inflow.Rate", "Inflow.Wat.Norm", "Inflow.Pond.Norm", "Temp.Variance", "Temp.Range", "Median.Water.Level", "Constant.Water.Level", "Contant.Water.Level.6in", "Outlet.Water.Level", "Below.Outlet.Water.Level", "Water.Level.25.75.Quantile", "Water.Level.10.90.Quantile", "Pond.Skewness")
+
+#Engineering Design Variables:
+eng_vars <- cbind(df_storm$Pond.Area.m2, df_storm$WA.PA, df_storm$Res.Time, df_storm$Avg.Pond.Depth, df_storm$Max.Pond.Depth, df_storm$L.to.W.ratio, df_storm$LF.Outlet.Restrict, df_storm$Tot.Outlet.Restrict, df_storm$Number.of.Outlets, df_storm$Pond.Age, df_storm$Pond.Chain, df_storm$Pipe, df_storm$Rectangular.Weir, df_storm$Vnotch.Weir, df_storm$Other.Weir, df_storm$Other, df_storm$Total...Veg.Species, df_storm$Mowed, df_storm$X..Native.Species.1, df_storm$X..Non.native.species.1)
+
+colnames(eng_vars) <- c("Pond.Area.m2", "WA.PA", "Res.Time", "Avg.Pond.Depth", "Max.Pond.Depth", "L.to.W.ratio", "LF.Outlet.Restrict", "Tot.Outlet.Restrict", "Number.of.Outlets", "Pond.Age", "Pond.Chain", "Pipe", "Rectangular.Weir", "Vnotch.Weir", "Other.Weir", "Other", "Total...Veg.Species", "Mowed", "X..Native.Species.1", "X..Non.native.species.1")
+
+#Watershed Variables:
+wat_vars <- cbind(df_storm$Watershed.Area.m2, df_storm$Impervious.Percent.Recalc, df_storm$Commercial.Percent, df_storm$Residential.Percent, df_storm$Greenspace.Percent, df_storm$Curve.Number, df_storm$Urban.Baseflow, df_storm$Average.Watershed.Slope, df_storm$Average.Development.Age, df_storm$Surrounding.Land.Use.Com, df_storm$Surrounding.Land.Use.Res, df_storm$Surrounding.Land.Use.GS, df_storm$Canopy.Percent)
+
+colnames(wat_vars) <- c("Watershed.Area.m2", "Impervious.Percent.Recalc", "Commercial.Percent", "Residential.Percent", "Greenspace.Percent", "Curve.Number", "Urban.Baseflow", "Average.Watershed.Slope", "Average.Development.Age", "Surrounding.Land.Use.Com", "Surrounding.Land.Use.Res", "Surrounding.Land.Use.GS", "Canopy.Percent")
+
+#All:
+all_vars <- cbind(df_storm$Max.Bounce, df_storm$Rain.Amount, df_storm$Decline.Rate, df_storm$Inflow.Rate, df_storm$Inflow.Wat.Norm, df_storm$Inflow.Pond.Norm, df_storm$Temp.Variance, df_storm$Temp.Range, df_storm$Median.Water.Level, df_storm$Constant.Water.Level, df_storm$Contant.Water.Level.6in, df_storm$Outlet.Water.Level, df_storm$Below.Outlet.Water.Level, df_storm$Water.Level.25.75.Quantile, df_storm$Water.Level.10.90.Quantile, df_storm$Pond.Skewness, df_storm$Pond.Area.m2, df_storm$WA.PA, df_storm$Res.Time, df_storm$Avg.Pond.Depth, df_storm$Max.Pond.Depth, df_storm$L.to.W.ratio, df_storm$LF.Outlet.Restrict, df_storm$Tot.Outlet.Restrict, df_storm$Number.of.Outlets, df_storm$Pond.Age, df_storm$Pond.Chain, df_storm$Pipe, df_storm$Rectangular.Weir, df_storm$Vnotch.Weir, df_storm$Other.Weir, df_storm$Other, df_storm$Total...Veg.Species, df_storm$Mowed, df_storm$X..Native.Species.1, df_storm$X..Non.native.species.1, df_storm$Watershed.Area.m2, df_storm$Impervious.Percent.Recalc, df_storm$Commercial.Percent, df_storm$Residential.Percent, df_storm$Greenspace.Percent, df_storm$Curve.Number, df_storm$Urban.Baseflow, df_storm$Average.Watershed.Slope, df_storm$Average.Development.Age, df_storm$Surrounding.Land.Use.Com, df_storm$Surrounding.Land.Use.Res, df_storm$Surrounding.Land.Use.GS, df_storm$Canopy.Percent)
+
+colnames(all_vars) <- c("Max.Bounce", "Rain.Amount", "Decline.Rate", "Inflow.Rate", "Inflow.Wat.Norm", "Inflow.Pond.Norm", "Temp.Variance", "Temp.Range", "Median.Water.Level", "Constant.Water.Level", "Contant.Water.Level.6in", "Outlet.Water.Level", "Below.Outlet.Water.Level", "Water.Level.25.75.Quantile", "Water.Level.10.90.Quantile", "Pond.Skewness", "Pond.Area.m2", "WA.PA", "Res.Time", "Avg.Pond.Depth", "Max.Pond.Depth", "L.to.W.ratio", "LF.Outlet.Restrict", "Tot.Outlet.Restrict", "Number.of.Outlets", "Pond.Age", "Pond.Chain", "Pipe", "Rectangular.Weir", "Vnotch.Weir", "Other.Weir", "Other", "Total...Veg.Species", "Mowed", "X..Native.Species.1", "X..Non.native.species.1", "Watershed.Area.m2", "Impervious.Percent.Recalc", "Commercial.Percent", "Residential.Percent", "Greenspace.Percent", "Curve.Number", "Urban.Baseflow", "Average.Watershed.Slope", "Average.Development.Age", "Surrounding.Land.Use.Com", "Surrounding.Land.Use.Res", "Surrounding.Land.Use.GS", "Canopy.Percent")
+
+#Hydrologic + Engineering:
+hyd_eng_vars <- cbind(df_storm$Max.Bounce, df_storm$Rain.Amount, df_storm$Decline.Rate, df_storm$Inflow.Rate, df_storm$Inflow.Wat.Norm, df_storm$Inflow.Pond.Norm, df_storm$Temp.Variance, df_storm$Temp.Range, df_storm$Median.Water.Level, df_storm$Constant.Water.Level, df_storm$Contant.Water.Level.6in, df_storm$Outlet.Water.Level, df_storm$Below.Outlet.Water.Level, df_storm$Water.Level.25.75.Quantile, df_storm$Water.Level.10.90.Quantile, df_storm$Pond.Skewness, df_storm$Pond.Area.m2, df_storm$WA.PA, df_storm$Res.Time, df_storm$Avg.Pond.Depth, df_storm$Max.Pond.Depth, df_storm$L.to.W.ratio, df_storm$LF.Outlet.Restrict, df_storm$Tot.Outlet.Restrict, df_storm$Number.of.Outlets, df_storm$Pond.Age, df_storm$Pond.Chain, df_storm$Pipe, df_storm$Rectangular.Weir, df_storm$Vnotch.Weir, df_storm$Other.Weir, df_storm$Other, df_storm$Total...Veg.Species, df_storm$Mowed, df_storm$X..Native.Species.1, df_storm$X..Non.native.species.1)
+
+colnames(hyd_eng_vars) <- c("Max.Bounce", "Rain.Amount", "Decline.Rate", "Inflow.Rate", "Inflow.Wat.Norm", "Inflow.Pond.Norm", "Temp.Variance", "Temp.Range", "Median.Water.Level", "Constant.Water.Level", "Contant.Water.Level.6in", "Outlet.Water.Level", "Below.Outlet.Water.Level", "Water.Level.25.75.Quantile", "Water.Level.10.90.Quantile", "Pond.Skewness", "Pond.Area.m2", "WA.PA", "Res.Time", "Avg.Pond.Depth", "Max.Pond.Depth", "L.to.W.ratio", "LF.Outlet.Restrict", "Tot.Outlet.Restrict", "Number.of.Outlets", "Pond.Age", "Pond.Chain", "Pipe", "Rectangular.Weir", "Vnotch.Weir", "Other.Weir", "Other", "Total...Veg.Species", "Mowed", "X..Native.Species.1", "X..Non.native.species.1")
+
+#Hydrologic + Watershed:
+hyd_wat_vars <- cbind(df_storm$Max.Bounce, df_storm$Rain.Amount, df_storm$Decline.Rate, df_storm$Inflow.Rate, df_storm$Inflow.Wat.Norm, df_storm$Inflow.Pond.Norm, df_storm$Temp.Variance, df_storm$Temp.Range, df_storm$Median.Water.Level, df_storm$Constant.Water.Level, df_storm$Contant.Water.Level.6in, df_storm$Outlet.Water.Level, df_storm$Below.Outlet.Water.Level, df_storm$Water.Level.25.75.Quantile, df_storm$Water.Level.10.90.Quantile, df_storm$Pond.Skewness, df_storm$Watershed.Area.m2, df_storm$Impervious.Percent.Recalc, df_storm$Commercial.Percent, df_storm$Residential.Percent, df_storm$Greenspace.Percent, df_storm$Curve.Number, df_storm$Urban.Baseflow, df_storm$Average.Watershed.Slope, df_storm$Average.Development.Age, df_storm$Surrounding.Land.Use.Com, df_storm$Surrounding.Land.Use.Res, df_storm$Surrounding.Land.Use.GS, df_storm$Canopy.Percent)
+
+colnames(hyd_wat_vars) <- c("Max.Bounce", "Rain.Amount", "Decline.Rate", "Inflow.Rate", "Inflow.Wat.Norm", "Inflow.Pond.Norm", "Temp.Variance", "Temp.Range", "Median.Water.Level", "Constant.Water.Level", "Contant.Water.Level.6in", "Outlet.Water.Level", "Below.Outlet.Water.Level", "Water.Level.25.75.Quantile", "Water.Level.10.90.Quantile", "Pond.Skewness", "Watershed.Area.m2", "Impervious.Percent.Recalc", "Commercial.Percent", "Residential.Percent", "Greenspace.Percent", "Curve.Number", "Urban.Baseflow", "Average.Watershed.Slope", "Average.Development.Age", "Surrounding.Land.Use.Com", "Surrounding.Land.Use.Res", "Surrounding.Land.Use.GS", "Canopy.Percent")
+  
+#Engineering + Watershed:
+eng_wat_vars <- cbind(df_storm$Pond.Area.m2, df_storm$WA.PA, df_storm$Res.Time, df_storm$Avg.Pond.Depth, df_storm$Max.Pond.Depth, df_storm$L.to.W.ratio, df_storm$LF.Outlet.Restrict, df_storm$Tot.Outlet.Restrict, df_storm$Number.of.Outlets, df_storm$Pond.Age, df_storm$Pond.Chain, df_storm$Pipe, df_storm$Rectangular.Weir, df_storm$Vnotch.Weir, df_storm$Other.Weir, df_storm$Other, df_storm$Total...Veg.Species, df_storm$Mowed, df_storm$X..Native.Species.1, df_storm$X..Non.native.species.1, df_storm$Watershed.Area.m2, df_storm$Impervious.Percent.Recalc, df_storm$Commercial.Percent, df_storm$Residential.Percent, df_storm$Greenspace.Percent, df_storm$Curve.Number, df_storm$Urban.Baseflow, df_storm$Average.Watershed.Slope, df_storm$Average.Development.Age, df_storm$Surrounding.Land.Use.Com, df_storm$Surrounding.Land.Use.Res, df_storm$Surrounding.Land.Use.GS, df_storm$Canopy.Percent)
+  
+colnames(eng_wat_vars) <- c("Pond.Area.m2", "WA.PA", "Res.Time", "Avg.Pond.Depth", "Max.Pond.Depth", "L.to.W.ratio", "LF.Outlet.Restrict", "Tot.Outlet.Restrict", "Number.of.Outlets", "Pond.Age", "Pond.Chain", "Pipe", "Rectangular.Weir", "Vnotch.Weir", "Other.Weir", "Other", "Total...Veg.Species", "Mowed", "X..Native.Species.1", "X..Non.native.species.1", "Watershed.Area.m2", "Impervious.Percent.Recalc", "Commercial.Percent", "Residential.Percent", "Greenspace.Percent", "Curve.Number", "Urban.Baseflow", "Average.Watershed.Slope", "Average.Development.Age", "Surrounding.Land.Use.Com", "Surrounding.Land.Use.Res", "Surrounding.Land.Use.GS", "Canopy.Percent")
+
+```
+
+PCA of response variables
+```{r}
+response_vars_avg <- data.frame(df_avg$Total.Richness, df_avg$Fish.Richness, df_avg$Herp.Richness, df_avg$Vert.Richness, df_avg$Plant.Richness, df_avg$Amphib.Richness, df_avg$Animal.Richness, df_avg$Invert.Richness, df_avg$Avg.Atten, df_avg$Chloride..mg.L., df_avg$YSI.DO..mg.L., df_avg$Secchi.Disk.Depth..cm., df_avg$SPC, df_avg$Sulfate..mg.L., df_avg$TN..ug.L., df_avg$TP..ug.L., df_avg$TSS..mg.L., df_avg$Nitrate..ug.L., df_avg$Ammonia..ug.L., df_avg$temprange.avg, df_avg$tempvariance.avg, df_avg$Chloride.change, df_avg$DO.change, df_avg$Secchi.change, df_avg$SPC.change, df_avg$Sulfate.change, df_avg$TN.change, df_avg$TP.change, df_avg$TSS.change, df_avg$Nitrate.change, df_avg$Ammonia.change, df_avg$Average.Trash.Count, df_avg$Average.Odor)
+
+pca_avg <- prcomp(response_vars_avg, scale =TRUE, center =TRUE)
+summary(pca_avg)
+
+# normalize data
+# scale function standardizes the data by subtracting the mean and dividing by the standard deviation
+response_vars_normalized <- scale(response_vars_avg)
+
+# compute correlation matrix
+# plot shows strength and direction of correlations between variables
+corr_matrix <- cor(response_vars_avg)
+ggcorrplot(corr_matrix, tl.cex = 7)
+
+# apply PCA
+# summary shows information about proportion of variance explained by each principal component and loadings (weights assigned to each variable in each principal component)
+data.pca <- princomp(corr_matrix)
+summary(data.pca)
+
+# loading matrix
+# principal component loadings: coefficients that define the linear combination of the original variables that make up each principal component
+# shows loadings of only the first two principal components
+data.pca$loadings[, 1:4]
+
+# scree plot
+# visualize importance of each principal component--helps determine number of principal components to retain for further analysis
+fviz_eig(data.pca, addlabels = TRUE)
+
+# biplot
+fviz_pca_var(pca_avg, col.var="steelblue")
+
+# Scores and loadings
+PCAcolors <- c("#66c2a5","#fc8d62","#8da0cb")[as.integer(df$Pond.Name)]
+
+
+PCAscores <- pca_avg$x
+PCAloadings <- pca_avg$rotation
+
+
+plot(PCAscores[,1:2])
+
+plot(PCAloadings[,1:2])
+# text(PCAloadings[,1:2],             # sets position of labels
+#      labels=rownames(PCAloadings)  # print labels
+# )
+pointLabel(PCAloadings[,1:2],             # set position of labels
+           labels=rownames(PCAloadings),  # print labels
+           cex=0.5                          # set size of label
+)
+```
+
+Want to view how engineering and watershed variables influence bounce
+```{r}
+# we have too many variables for Linear Regression to work well given our # of observations
+# soooo... PCA!
+# (have some categorical/ one-hot encoded variables in here even though PCA is really only designed for continuous data)
+eng_water_variables <- data.frame(vars$L.to.W.ratio, vars$Number.of.Outlets, vars$Pond.Age, vars$Total...Veg.Species, vars$X..Native.Species.1, vars$X..Non.native.species.1, vars$LF.Outlet.Restrict, vars$Tot.Outlet.Restrict, vars$WA.PA, vars$Avg.Pond.Depth, vars$Max.Pond.Depth, vars$Res.Time, vars$Average.Watershed.Slope, vars$Impervious.Percent.Recalc, vars$Commercial.Percent, vars$Residential.Percent, vars$Greenspace.Percent, vars$Curve.Number, vars$Average.Development.Age, vars$Urban.Baseflow, vars$Canopy.Percent)
+
+# extra one hot encoded vars
+# Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Mowed
+# vars$Surrounding.Land.Use.Com, vars$Surrounding.Land.Use.Res, vars$Surrounding.Land.Use.GS
+
+pca_result <- prcomp(eng_water_variables, scale=TRUE, center=TRUE)
+summary(pca_result)
+
+# Extract the desired number of principal components
+num_components <- 8  # Example: Use the first 3 principal components
+selected_components <- pca_result$x[, 1:num_components]
+
+#selected_components_by_storm <- c(selected_components, selected_components, selected_components)
+
+comp_csv <- write.csv(selected_components, file = "/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/eng_wat_components.csv", row.names=FALSE)
+```
+```{r}
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+hyd_eng_water_variables <- data.frame(df$Max.Bounce, df$Rain.Amount, df$Decline.Rate, df$Inflow.Rate, df$Inflow.Wat.Norm, df$Inflow.Pond.Norm, df$Temp.Variance, df$Temp.Range, df$Median.Water.Level, df$Constant.Water.Level, df$Contant.Water.Level.6in, df$Outlet.Water.Level, df$Below.Outlet.Water.Level, df$Water.Level.25.75.Quantile, df$Water.Level.10.90.Quantile, df$Pond.Skewness, df$WA.PA, df$Res.Time, df$Avg.Pond.Depth, df$Max.Pond.Depth, df$L.to.W.ratio, df$LF.Outlet.Restrict, df$Tot.Outlet.Restrict, df$Number.of.Outlets, df$Pond.Age, df$Pond.Chain, df$Pipe, df$Rectangular.Weir, df$Vnotch.Weir, df$Other.Weir, df$Other, df$Total...Veg.Species, df$Mowed, df$X..Native.Species.1, df$X..Non.native.species.1, df$Impervious.Percent.Recalc, df$Commercial.Percent, df$Residential.Percent, df$Greenspace.Percent, df$Curve.Number, df$Urban.Baseflow, df$Average.Watershed.Slope, df$Average.Development.Age, df$Surrounding.Land.Use.Com, df$Surrounding.Land.Use.Res, df$Surrounding.Land.Use.GS, df$Canopy.Percent)
+
+# extra one hot encoded vars
+# Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Mowed
+# vars$Surrounding.Land.Use.Com, vars$Surrounding.Land.Use.Res, vars$Surrounding.Land.Use.GS
+
+pca_result <- prcomp(hyd_eng_water_variables, scale=TRUE, center=TRUE)
+summary(pca_result)
+
+# Extract the desired number of principal components
+#num_components <- 8  # Example: Use the first 3 principal components
+#selected_components <- pca_result$x[, 1:num_components]
+
+#selected_components_by_storm <- c(selected_components, selected_components, selected_components)
+
+#comp_csv <- write.csv(selected_components, file = "/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/eng_wat_components.csv", row.names=FALSE)
+
+
+```
+
+Correlation Matrix of WQ Vars
+```{r}
+wq_vars <- data.frame(df_storm$)
+
+# compute correlation matrix
+# plot shows strength and direction of correlations between variables
+corr_matrix <- cor(response_vars_avg)
+ggcorrplot(corr_matrix, tl.cex = 7)
+```
+
+PLSR of engineering/watershed variables vs bounce by storm
+```{r}
+library(pls)
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+model <- plsr(
+  Max.Bounce ~ Rain.Amount+Median.Water.Level+Constant.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(model)
+
+# visualize cross-validation plots
+validationplot(model)
+validationplot(model, val.type="MSEP")
+#validationplot(model, val.type="R2")
+
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+
+# Plot predicted vs measured using first 3 components
+plot(model, ncomp=3, line=TRUE, main="",  xlab="Measured Bounce (ft)", ylab="Predicted Bounce (ft)", pch = 16, col = "dodgerblue", bg="transparent", cex.axis=1)
+grid()
+
+# R-squared
+#print(R2(model))
+
+vi(model, scaled = TRUE)
+coef(model)
+
+```
+
+
+```{r}
+library(vip)
+library(pls)
+source("find_best_model.R")
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+y = c("Max.Bounce")
+X = c("Rain.Amount","Median.Water.Level","Constant.Water.Level","Contant.Water.Level.6in","Outlet.Water.Level","Below.Outlet.Water.Level","Water.Level.25.75.Quantile","Water.Level.10.90.Quantile","Pond.Skewness","WA.PA","Res.Time","Avg.Pond.Depth","Max.Pond.Depth","L.to.W.ratio","LF.Outlet.Restrict","Tot.Outlet.Restrict","Number.of.Outlets","Pond.Age","Pond.Chain","Pipe","Rectangular.Weir","Vnotch.Weir","Other.Weir","Other","Total...Veg.Species","Mowed","X..Native.Species.1","X..Non.native.species.1","Impervious.Percent.Recalc","Commercial.Percent","Residential.Percent","Greenspace.Percent","Curve.Number","Urban.Baseflow","Average.Watershed.Slope","Average.Development.Age","Surrounding.Land.Use.Com","Surrounding.Land.Use.Res","Surrounding.Land.Use.GS","Canopy.Percent")
+get_best_vars_both(X,y,df)
+```
+
+
+
+PLSR of hydrologic/engineering/watershed variables predicting species richness
+```{r}
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+# three options for how many variables to include: this is final option with fewest variables
+# need to select number of components
+model <- plsr(Total.Richness+Plant.Richness+Animal.Richness+Invert.Richness ~ Max.Bounce+Decline.Rate+Pond.Skewness+Res.Time+HF.Outlet.Restrict.1+Pond.Age+Pipe+Vnotch.Weir+Total...Veg.Species+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Greenspace.Percent+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.
+,
+  data=df_outliers, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(model)
+
+# Extract coefficients
+coefficients <- coef(model)
+
+# visualize cross-validation plots
+validationplot(model)
+validationplot(model, val.type="MSEP")
+#validationplot(model, val.type="R2")
+
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+
+# Plot predicted vs measured using first 3 components
+plot(model, ncomp=3, line=TRUE, main="",  xlab="Measured Richness", ylab="Predicted Richness", pch = 16, col = "lightpink", bg="transparent", cex.axis=1)
+grid()
+
+# R-squared
+print(pls::R2(model))
+#print(Q2(model))
+
+vi(model, scale = FALSE)
+```
+
+Plot VIP scores: species richness
+```{r}
+# Assuming richness_vip is your vector of VIP scores
+richness_vip_df <- data.frame(variable = richness_vip$Variable, VIP_score = richness_vip$Importance)
+
+# Arrange data frame from highest to lowest VIP scores
+#richness_vip_df %>% arrange(desc(VIP_score))
+richness_vip_df_desc <- arrange(richness_vip_df, -VIP_score)
+
+# Add variable type as column to data frame
+# Create a vector of variable types corresponding to each variable
+variable_types <- c("HYD", "HYD", "ED", "ED", "ED", "WS", "ED", "WS", "ED", "ED", "ED", "ED", "WS", "ED", "WS", "WS", "WS", "HYD", "WS")  # Adjust with your actual variable types
+
+# Add alphabetical column to data frame so that bar chart will be plotted correctly
+# Create an alphabetical vector
+alphabet <- c("S", "R", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G", "F", "E", "D", "C", "B", "A")
+
+# Add the variable type column to richness_vip_df
+richness_vip_df$type <- variable_types
+
+# Sort the data frame by variable type
+#richness_vip_df %>% arrange(type)
+richness_vip_df_grouped <- arrange(richness_vip_df, type)
+
+# Add alphabetical column to data frame
+richness_vip_df_grouped$alphabet <- alphabet
+
+# Create custom labels for y axis
+custom_labels <- c("Surrounding Land Use Commercial", "Canopy Cover %", "Watershed Area", "Impervious %", "Surrounding Land Use Residential", "Greenspace %", "Surrounding Land Use Greenspace", "Gradual Decline Rate", "Max Bounce", "Water Level Histogram Skewness", "Total # Vegetation Species", "Residence Time", "V-notch Weir Outlet", "Orifice Outlet", "Pond Age", "Outlet Restrictiveness", "Average Sediment Bulk Density", "% Non-native Vegetation Species", "% Native Vegetation Species")
+
+
+# Plot the sideways bar chart by alphabet column to get the variables grouped by type and sorted by VIP score within each type
+ggplot(richness_vip_df_grouped, aes(x = VIP_score, y = alphabet, fill = VIP_score)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "white", high = "limegreen", name = "VIP Score") +
+  scale_y_discrete(labels = custom_labels) +
+  labs(x = "VIP Score", y = "") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12)) +
+  geom_hline(aes(yintercept=7.5)) +
+  geom_hline(aes(yintercept=10.5))
+  #annotate(geom="text", x=1.6, y=1.5, label="Hydrologic Variables")
+```
+
+```{r}
+
+# Subset the data frame to include only the first two columns
+vip_scores_subset <- richness_vip_df_grouped[, 1:2]
+
+# Create a color gradient based on the VIP scores
+color_gradient <- colorRampPalette(c("red", "green"))
+
+# Variable colors
+var_colors <- c("gold", "gold", "gold", "gold", "gold", "gold", "gold","gold", "dodgerblue", "seagreen")
+
+# Normalize the VIP scores between 0 and 1 for consistent color mapping
+normalized_vip_scores <- scales::rescale(vip_scores_subset$VIP_score)
+
+# Generate colors based on the color gradient and the normalized VIP scores
+vip_colors <- color_gradient(100)[as.integer(normalized_vip_scores * 100)]
+
+# Create the table with color-coded VIP scores
+vip_table <- kable(vip_scores_subset, "html", align = "c") %>%
+  kable_styling(full_width = FALSE) %>%
+  column_spec(2, background = vip_colors)
+  add_header_above(c("Predictor Variable" = 1, "VIP Score" = 1))
+
+vip_table
+  # Generate colors based on the color gradient and the normalized VIP scores`
+
+```
+
+```{r}
+# Assuming richness_vip is your vector of VIP scores
+richness_vip_df <- data.frame(variable = richness_vip$Variable, VIP_score = richness_vip$Importance)
+
+# Arrange data frame from highest to lowest VIP scores
+#richness_vip_df %>% arrange(desc(VIP_score))
+richness_vip_df_desc <- arrange(richness_vip_df, -VIP_score)
+
+# Add variable type as column to data frame
+# Create a vector of variable types corresponding to each variable
+variable_types <- c("WS", "HYD", "HYD", "ED", "ED", "ED", "WS", "ED", "WS", "ED", "ED", "ED", "ED", "WS", "ED", "WS", "WS", "WS", "HYD", "WS")  
+
+# Add alphabetical column to data frame so that bar chart will be plotted correctly
+# Create an alphabetical vector
+alphabet <- c("T", "S", "R", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G", "F", "E", "D", "C", "B", "A")
+
+# Add the variable type column to richness_vip_df
+richness_vip_df$type <- variable_types
+
+# Sort the data frame by variable type
+#richness_vip_df %>% arrange(type)
+richness_vip_df_grouped <- arrange(richness_vip_df, type)
+
+# Add alphabetical column to data frame
+richness_vip_df_grouped$alphabet <- alphabet
+# Add numbers column to data frame
+numbers <- c(20:1)
+richness_vip_df_grouped$numbers <- numbers
+
+# Create custom labels for y axis
+custom_labels <- c("Surrounding Land Use Commercial", "Canopy Cover %", "Watershed Area", "Impervious %", "Surrounding Land Use Residential", "Greenspace %", "Surrounding Land Use Greenspace", "Watershed Slope", "Gradual Decline Rate", "Max Bounce", "Water Level Histogram Skewness", "Total # Vegetation Species", "Residence Time", "V-notch Weir Outlet", "Orifice Outlet", "Pond Age", "Outlet Restrictiveness", "Average Sediment Bulk Density", "% Non-native Vegetation Species", "% Native Vegetation Species")
+
+data_breaks <- data.frame(start = c(0.5, 8.5, 11.5), 
+                          end = c(8.5, 11.5, 21),
+                          colors = c("seagreen", "dodgerblue", "gold"))
+
+# Plot the sideways bar chart by alphabet column to get the variables grouped by type and sorted by VIP score within each type
+ggplot(richness_vip_df_grouped, aes(x = VIP_score, y = numbers, fill = VIP_score)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "salmon", high = "limegreen", name = "VIP Score") +
+  scale_y_discrete(labels = custom_labels) +
+  labs(x = "VIP Score", y = "Predictor Variable") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1)) +
+  
+  geom_rect(aes(xmin = 0, xmax = 2.5, ymin = 0, ymax = 8.5), fill = "seagreen", color = "transparent", alpha = 0.02) 
+  geom_rect(data = data_breaks, aes(xmin = -Inf, xmax = Inf, ymin = start, ymax = end), fill = colors, alpha = 0.02) 
+
+```
+
+PLSR of hydrologic/engineering/watershed variables predicting attenuation
+```{r}
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+# Final variables selected, need to determine number of components
+model <- plsr(
+  Attenuation ~ HF.Outlet.Restrict.1+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict.Norm+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om
+,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(model)
+
+# visualize cross-validation plots
+validationplot(model)
+validationplot(model, val.type="MSEP")
+#validationplot(model, val.type="R2")
+
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+
+# Plot predicted vs measured using first 3 components
+plot(model, ncomp=3, line=TRUE, main="",  xlab="Measured Attenuation (% Reduction)", ylab="Predicted Attenuation (% Reduction)", pch = 16, col = "thistle", bg="transparent", cex.axis=1)
+grid()
+
+# Predicted vs measured values using first 3 components
+predicted_vs_measured <- data.frame(Measured = df$Attenuation, Predicted = predict(model, ncomp = 3))
+
+# Create the ggplot object
+ggplot(predicted_vs_measured, aes(x = Measured, y = Attenuation.3.comps)) +
+  geom_point(shape = 16, color = "thistle", fill = "transparent") +
+  geom_abline(intercept = 0, slope = 1, color = "black", linetype = "dashed") +
+  labs(x = "Measured Attenuation (% Reduction)", y = "Predicted Attenuation (% Reduction)", title = "") +
+  theme_minimal() +
+  theme(panel.grid = element_blank())
+
+# R-squared
+print(pls::R2(model))
+
+# VIP scores
+# Below 1 means variable is not contributing significantly to the model
+# Deleted variables with the lowest scores (below 1) until model Q2 no longer increased
+vi(model, scaled = FALSE)
+
+```
+
+Attenuation bar chart
+```{r}
+# Assuming richness_vip is your vector of VIP scores
+atten_vip_df <- data.frame(variable = atten_vip$Variable, VIP_score = atten_vip$Importance)
+
+# Arrange data frame from highest to lowest VIP scores
+#richness_vip_df %>% arrange(desc(VIP_score))
+atten_vip_df_desc <- arrange(atten_vip_df, -VIP_score)
+
+# Add variable type as column to data frame
+# Create a vector of variable types corresponding to each variable
+variable_types <- c("ED", "ED", "ED", "HYD", "ED", "HYD", "ED", "HYD", "WS", "HYD", "HYD", "ED", "ED", "ED", "ED", "ED", "ED", "ED", "WS", "WS", "HYD", "ED", "HYD", "ED", "WS", "WS", "ED", "ED", "WS", "WS")  # Adjust with your actual variable types
+
+# Add alphabetical column to data frame so that bar chart will be plotted correctly
+# Create an alphabetical vector
+alphabet <- c("Z", "Y", "X", "W", "V", "U", "T", "S", "R", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G", "F", "E","DD", "D","CC", "C","BB", "B","AA", "A")
+
+# Add the variable type column to richness_vip_df
+atten_vip_df$type <- variable_types
+
+# Sort the data frame by variable type
+#richness_vip_df %>% arrange(type)
+atten_vip_df_grouped <- arrange(atten_vip_df, type)
+
+# Add alphabetical column to data frame
+atten_vip_df_grouped$alphabet <- alphabet
+
+# Create custom labels for y axis
+# NEED TO DO THESE BACKWARDS
+custom_labels <- c("High Flow Outlet Restrictiveness", "Low Flow Outlet Restrictiveness", "Sediment Depth", "Number of Outlets", "Mow Status", "% Organic Matter", "% Non-native Vegetation Species", "Max Pond Depth", "% Native Vegetation Species", "Rectangular Weir Outlet", "Pond Chain", "Average Pond Depth", "Other Outlet", "Length-to-width Ratio", "Other Weir Outlet", "Total # Vegetation Species", "Max Bounce", "Gradual Decline Rate", "% Days WL Below Outlet", "WL Between 10-90 Quantile", "WL Between 27-75 Quantile", "Temperature Variance",  "Median Water Level", "Greenspace %", "Residential %", "Surrounding Land Use Residential", "Average Watershed Slope", "Surrounding Land Use Commercial", "Canopy Cover %", "Commercial %")
+
+# Can you create a custom_labels vector that is the same as above but switch the order of all of the labels so the last one above is the first in this vector, etc.
+custom_labels <- rev(custom_labels)
+
+# Plot the sideways bar chart by alphabet column to get the variables grouped by type and sorted by VIP score within each type
+ggplot(atten_vip_df_grouped, aes(x = VIP_score, y = alphabet, fill = VIP_score)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "white", high = "limegreen", name = "VIP Score") +
+  scale_y_discrete(labels = custom_labels) +
+  labs(x = "VIP Score", y = "") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12)) +
+  geom_hline(aes(yintercept=7.5)) +
+  geom_hline(aes(yintercept=14.5))
+  #annotate(geom="text", x=1.6, y=1.5, label="Hydrologic Variables")
+```
+
+PLSR of hydrologic/engineering/watershed variables predicting water quality parameters
+```{r}
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars_DO.csv")
+
+# make this example reproducible
+set.seed(1)
+
+#Chloride..mg.L.
+
+# Max.Bounce+Median.Water.Level+Below.Outlet.Water.Level+Water.Level.10.90.Quantile+Avg.Pond.Depth+Impervious.Percent.Recalc+Commercial.Percent
+
+# run PLSR
+# final number of predictor variables, but VIP scores are suspiciously high
+# need to determine total # of components
+model <- plsr(
+  YSI.DO.Change.... ~ Max.Bounce+Rain.Amount+Inflow.Rate+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+WA.PA+Res.Time+Avg.Pond.Depth+LF.Outlet.Restrict.Norm+HF.Outlet.Restrict.1+Pipe+Other.Weir+Mowed+Impervious.Percent.Recalc+Residential.Percent+Greenspace.Percent+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Canopy.Percent+avg_sed_cm+per_om,
+  data=df, scale=TRUE, validation="CV", ncomp=7
+)
+
+# RMSEP and % variance explained
+summary(model)
+
+# visualize cross-validation plots
+validationplot(model)
+validationplot(model, val.type="MSEP")
+#validationplot(model, val.type="R2")
+
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+
+# Plot predicted vs measured using first 3 components
+plot(model, ncomp=3, line=TRUE, main="",  xlab="Measured DO % Change", ylab="Predicted DO % Change", pch = 16, col = "seagreen3", bg="transparent", cex.axis=1)
+grid()
+
+# R-squared
+print(pls::R2(model))
+
+nit_vip <- vi(model, scale = FALSE)
+
+```
+TN/TP Change Bar Chart
+```{r}
+# Assuming richness_vip is your vector of VIP scores
+nit_vip_df <- data.frame(variable = nit_vip$Variable, VIP_score = nit_vip$Importance)
+
+# Arrange data frame from highest to lowest VIP scores
+#richness_vip_df %>% arrange(desc(VIP_score))
+nit_vip_df_desc <- arrange(nit_vip_df, -VIP_score)
+
+# Add variable type as column to data frame
+# Create a vector of variable types corresponding to each variable
+variable_types <- c("HYD", "HYD", "WS", "WS", "ED", "WS", "WS", "WS", "ED", "ED", "ED", "ED", "HYD", "ED", "HYD", "ED", "ED", "WS", "ED", "HYD", "WS", "HYD", "ED")  # Adjust with your actual variable types
+
+# Add alphabetical column to data frame so that bar chart will be plotted correctly
+# Create an alphabetical vector
+alphabet <- c("Z", "Y", "X", "W", "V", "U", "T", "S", "R", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G", "F", "E", "D")
+
+# Add the variable type column to richness_vip_df
+nit_vip_df$type <- variable_types
+
+# Sort the data frame by variable type
+#richness_vip_df %>% arrange(type)
+nit_vip_df_grouped <- arrange(nit_vip_df, type)
+
+# Add alphabetical column to data frame
+nit_vip_df_grouped$alphabet <- alphabet
+
+nit_vip_df_grouped <- nit_vip_df_grouped[c(1,2,3,4,5,6,7,8,9,11,12,13,14,15,17,18,19,20,21,22,23),]
+
+# Create custom labels for y axis
+# NEED TO DO THESE BACKWARDS
+custom_labels <- c("Residence Time", "High Flow Outlet Restrictiveness", "Low Flow Outlet Restrictiveness", "Watershed/Pond Area", "Average Sediment Depth", "Orifice Outlet", "Mow Status", "Trapezoidal Weir Outlet", "% Organic Matter", "Inflow Rate", "Max Bounce", "Rain Amount", "% Days WL within 6in of Outlet", "% Days WL Constant", "Average Development Age", "% Greenspace", "% Canopy Cover", "Average Watershed Slope", "Surrounding Land Use Commercial", "% Residential", "% Impervious Area")
+  
+
+# Can you create a custom_labels vector that is the same as above but switch the order of all of the labels so the last one above is the first in this vector, etc.
+custom_labels <- rev(custom_labels)
+
+# Plot the sideways bar chart by alphabet column to get the variables grouped by type and sorted by VIP score within each type
+print(ggplot(nit_vip_df_grouped, aes(x = VIP_score, y = alphabet, fill = VIP_score)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "white", high = "limegreen", name = "VIP Score") +
+  scale_y_discrete(labels = custom_labels) +
+  labs(x = "VIP Score", y = "") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12)) +
+  geom_hline(aes(yintercept=7.5)) +
+  geom_hline(aes(yintercept=12.5)))
+  #annotate(geom="text", x=1.6, y=1.5, label="Hydrologic Variables")
+```
+
+PLSR of hydrologic/engineering/watershed variables predicting aesthetic parameters
+```{r}
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+# make this example reproducible
+set.seed(1)
+
+#Max.Bounce+Rain.Amount+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict.Norm+HF.Outlet.Restrict.1+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om
+
+# run PLSR
+# final number of variables
+# need to determine number of components
+model <- plsr(
+  Odor ~ WA.PA+Pond.Area.m2+Pond.Skewness+Rain.Amount+Decline.Rate+Contant.Water.Level.6in+Max.Pond.Depth+L.to.W.ratio+Pond.Age+Other+Watershed.Area.m2+Commercial.Percent+Residential.Percent+Curve.Number+Average.Watershed.Slope+Canopy.Percent+avg_bd..g.cm3.,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(model)
+
+# visualize cross-validation plots
+validationplot(model)
+validationplot(model, val.type="MSEP")
+#validationplot(model, val.type="R2")
+
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+
+# Plot predicted vs measured using first 3 components
+plot(model, ncomp=3, line=TRUE, main="",  xlab="Measured Odor", ylab="Predicted Odor", pch = 16, col = "salmon", bg="transparent", cex.axis=1)
+grid()
+
+# R-squared
+print(pls::R2(model))
+
+trash_vip <-  vi(model)
+
+```
+Water Clarity Bar Chart
+```{r}
+# Assuming richness_vip is your vector of VIP scores
+trash_vip_df <- data.frame(variable = trash_vip$Variable, VIP_score = trash_vip$Importance)
+
+# Arrange data frame from highest to lowest VIP scores
+#richness_vip_df %>% arrange(desc(VIP_score))
+trash_vip_df_desc <- arrange(trash_vip_df, -VIP_score)
+
+# Add variable type as column to data frame
+# Create a vector of variable types corresponding to each variable
+variable_types <- c("HYD", "ED", "ED", "ED", "WS", "ED", "ED", "WS", "HYD", "HYD", "HYD", "WS", "WS", "WS", "ED", "ED", "WS")  # Adjust with your actual variable types
+
+# Add alphabetical column to data frame so that bar chart will be plotted correctly
+# Create an alphabetical vector
+alphabet <- c("Z", "Y", "X", "W", "V", "U", "T", "S", "R", "Q", "P", "O", "N", "M", "L", "K", "J")
+
+# Add the variable type column to richness_vip_df
+trash_vip_df$type <- variable_types
+
+# Sort the data frame by variable type
+#richness_vip_df %>% arrange(type)
+trash_vip_df_grouped <- arrange(trash_vip_df, type)
+
+# Add alphabetical column to data frame
+trash_vip_df_grouped$alphabet <- alphabet
+
+trash_vip_df_grouped <- trash_vip_df_grouped[c(1:16),]
+
+# Create custom labels for y axis
+# NEED TO DO THESE BACKWARDS
+custom_labels <- c("Spillway", "Max Pond Depth", "Pond Age", "Average Bulk Density", "Pond Area", "Length-to-width Ratio", "Watershed/Pond Area", "Rain Amount", "Skewness of WL Histogram", "% Days WL Constant", "Gradual Decline Rate", "% Commercial", "Watershed Area", "% Residential", "Curve Number", "% Canopy Cover")
+
+# Can you create a custom_labels vector that is the same as above but switch the order of all of the labels so the last one above is the first in this vector, etc.
+custom_labels <- rev(custom_labels)
+
+# Plot the sideways bar chart by alphabet column to get the variables grouped by type and sorted by VIP score within each type
+print(ggplot(trash_vip_df_grouped, aes(x = VIP_score, y = alphabet, fill = VIP_score)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "white", high = "limegreen", name = "VIP Score") +
+  scale_y_discrete(labels = custom_labels) +
+  labs(x = "VIP Score", y = "") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12)) +
+  geom_hline(aes(yintercept=5.5)) +
+  geom_hline(aes(yintercept=9.5)))
+  #annotate(geom="text", x=1.6, y=1.5, label="Hydrologic Variables")
+```
+
+PLSR of hydrologic/engineering/watershed variables predicting environmental flow regime parameters
+```{r}
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+# final number of predictor variables
+# need to determine the number of components
+model <- plsr(
+  Peak.Outflow ~ Max.Bounce+Inflow.Rate+Pond.Skewness+Res.Time+L.to.W.ratio+LF.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Other.Weir+Other+X..Native.Species.1+X..Non.native.species.1+Impervious.Percent.Recalc+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(model)
+
+# visualize cross-validation plots
+validationplot(model)
+validationplot(model, val.type="MSEP")
+#validationplot(model, val.type="R2")
+
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+
+# Plot predicted vs measured using first 3 components
+plot(model, ncomp=3, line=TRUE, main="",  xlab="Calculated Peak Outflow", ylab="Predicted Peak Outflow", pch = 16, col = "dodgerblue", bg="transparent", cex.axis=1)
+grid()
+
+# R-squared
+print(pls::R2(model))
+
+of_vip <- vi(model, scaled = TRUE)
+```
+Days of Outflow Bar Chart
+```{r}
+# Assuming richness_vip is your vector of VIP scores
+of_vip_df <- data.frame(variable = of_vip$Variable, VIP_score = of_vip$Importance)
+
+# Arrange data frame from highest to lowest VIP scores
+#richness_vip_df %>% arrange(desc(VIP_score))
+of_vip_df_desc <- arrange(of_vip_df, -VIP_score)
+
+# Add variable type as column to data frame
+# Create a vector of variable types corresponding to each variable
+variable_types <- c("HYD", "ED", "HYD", "WS", "WS", "HYD", "ED", "ED", "WS", "ED", "ED", "ED", "ED", "ED", "ED", "ED", "ED", "WS", "WS", "HYD")  # Adjust with your actual variable types
+
+# Add alphabetical column to data frame so that bar chart will be plotted correctly
+# Create an alphabetical vector
+alphabet <- c("Z", "Y", "X", "W", "V", "U", "T", "S", "R", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G")
+
+# Add the variable type column to richness_vip_df
+of_vip_df$type <- variable_types
+
+# Sort the data frame by variable type
+#richness_vip_df %>% arrange(type)
+of_vip_df_grouped <- arrange(of_vip_df, type)
+
+# Add alphabetical column to data frame
+of_vip_df_grouped$alphabet <- alphabet
+
+# Create custom labels for y axis
+# NEED TO DO THESE BACKWARDS
+custom_labels <- c("Low Flow Outlet Restrictiveness", "Number of Outlets", "Pond Age", "Pond Chain", "Average Bulk Density", "Length-to-width Ratio", "Trapezoidal Weir", "% Non-native Vegetation Species", "% Native Vegetation Species", "Residence Time", "Spillway", "Urban Baseflow", "Max Bounce", "Skewness of Water Level Histogram", "Infow Rate", "% Impervious Area", "Surrounding Land Use GS", "Average Watershed Slope", "% Canopy Cover", "Curve Number")
+ 
+# Can you create a custom_labels vector that is the same as above but switch the order of all of the labels so the last one above is the first in this vector, etc.
+custom_labels <- rev(custom_labels)
+
+# Plot the sideways bar chart by alphabet column to get the variables grouped by type and sorted by VIP score within each type
+print(ggplot(of_vip_df_grouped, aes(x = VIP_score, y = alphabet, fill = VIP_score)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "white", high = "limegreen", name = "VIP Score") +
+  scale_y_discrete(labels = custom_labels) +
+  labs(x = "VIP Score", y = "") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12)) +
+  geom_hline(aes(yintercept=5.5)) +
+  geom_hline(aes(yintercept=9.5)))
+  #annotate(geom="text", x=1.6, y=1.5, label="Hydrologic Variables")
+```
+
+PLSR with all variables
+```{r}
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+# three options for how many variables to include: this is final option with fewest variables
+# need to select number of components
+rich_model <- plsr(Total.Richness+Plant.Richness+Animal.Richness+Invert.Richness ~ Max.Bounce+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(rich_model)
+
+# R-squared
+print(pls::R2(rich_model))
+#print(Q2(model))
+
+richness_vip_2 <- vi(rich_model)
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+# three options for how many variables to include: this is final option with fewest variables
+# need to select number of components
+atten_model <- plsr(Attenuation ~ Max.Bounce+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(atten_model)
+
+# R-squared
+print(pls::R2(atten_model))
+#print(Q2(model))
+
+atten_vip_2 <- vi(atten_model)
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+# three options for how many variables to include: this is final option with fewest variables
+# need to select number of components
+wq_model <- plsr(TN.Change....+TP.Change.... ~ Max.Bounce+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(wq_model)
+
+# R-squared
+print(pls::R2(wq_model))
+#print(Q2(model))
+
+wq_vip_2 <- vi(wq_model)
+
+# Scale the values to be between 0 and 1
+wq_vip_2$Importance <- scale(wq_vip_2$Importance)
+
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+# three options for how many variables to include: this is final option with fewest variables
+# need to select number of components
+clar_model <- plsr(Secchi.Disk.Depth..cm. ~ Max.Bounce+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(clar_model)
+
+# R-squared
+print(pls::R2(clar_model))
+#print(Q2(model))
+
+clar_vip_2 <- vi(clar_model)
+
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+# three options for how many variables to include: this is final option with fewest variables
+# need to select number of components
+of_model <- plsr(Percent.Days.Outflow ~ Max.Bounce+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+# RMSEP and % variance explained
+summary(of_model)
+
+# R-squared
+print(pls::R2(of_model))
+#print(Q2(model))
+
+of_vip_2 <- vi(of_model)
+```
+
+```{r}
+richness_vip_sorted <- richness_vip_2[order(richness_vip_2$Variable), ]
+atten_vip_sorted <- atten_vip_2[order(atten_vip_2$Variable), ]
+wq_vip_sorted <- wq_vip_2[order(wq_vip_2$Variable), ]
+clar_vip_sorted <- clar_vip_2[order(clar_vip_2$Variable), ]
+of_vip_sorted <- of_vip_2[order(of_vip_2$Variable), ]
+
+table_df <- cbind(richness_vip_sorted, atten_vip_sorted, wq_vip_sorted, clar_vip_sorted, of_vip_sorted)
+
+# save the above data frame as a csv file
+write.csv(table_df, "/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/VIP_table_2.csv", row.names = FALSE)
+```
+
+Heat map table
+```{r}
+# Subset the data frame to include only the first two columns
+vip_scores_subset <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/VIP_table_unscaled.csv")
+
+# Create a color gradient based on the VIP scores for the first column
+color_gradient <- colorRampPalette(c("white", "green"))
+
+# Normalize the VIP scores between 0 and 1 for consistent color mapping
+get_vip_colors <- function(vip_scores) {
+  normalized_vip_scores <- scales::rescale(vip_scores)
+  vip_colors <- color_gradient(101)[as.integer(normalized_vip_scores * 100)+1]
+  return(vip_colors)
+}
+
+# Create the table with color-coded VIP scores and another color-coded column
+vip_table <- kable(vip_scores_subset, "html", align = "c") %>%
+  kable_styling(full_width = FALSE, font_size = 20) %>%
+  column_spec(2, background = get_vip_colors(vip_scores_subset$TN.TP...Change)) %>%
+  column_spec(3, background = get_vip_colors(vip_scores_subset$Attenuation)) %>%
+  column_spec(4, background = get_vip_colors(vip_scores_subset$Species.Richness)) %>%
+  column_spec(5, background = get_vip_colors(vip_scores_subset$X..Days.with.Outflow)) %>%
+  column_spec(6, background = get_vip_colors(vip_scores_subset$Water.Clarity))
+  #add_header_above(c("Predictor Variable" = 1, "VIP Score" = 1))
+
+vip_table
+
+```
+
+
+Hydrologic Variables:
+Max.Bounce+Rain.Amount+Decline.Rate+Inflow.Rate+Inflow.Wat.Norm+Inflow.Pond.Norm+Temp.Variance+Temp.Range+Median.Water.Level+Constant.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness
+
+Engineering Design Variables:
+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1
+
+
+Watershed Variables:
+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent
+
+All:
+Max.Bounce+Rain.Amount+Decline.Rate+Inflow.Rate+Inflow.Wat.Norm+Inflow.Pond.Norm+Temp.Variance+Temp.Range+Median.Water.Level+Constant.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om
+
+Pared down all:
+Max.Bounce+Rain.Amount+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict.Norm+HF.Outlet.Restrict.1+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om
+
+Including normalized and no categorical vars:
+Max.Bounce.Norm+Rain.Amount+Decline.Rate.Norm+Inflow.Rate.Norm+Temp.Variance.Norm+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict.Norm+HF.Outlet.Restrict.1+Number.of.Outlets+Pond.Age+Total...Veg.Species+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om+Runoff.Depth.Norm
+
+Hydrologic + Engineering:
+Max.Bounce+Rain.Amount+Decline.Rate+Inflow.Rate+Inflow.Wat.Norm+Inflow.Pond.Norm+Temp.Variance+Temp.Range+Median.Water.Level+Constant.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1
+
+Hydrologic + Watershed:
+Max.Bounce+Rain.Amount+Decline.Rate+Inflow.Rate+Inflow.Wat.Norm+Inflow.Pond.Norm+Temp.Variance+Temp.Range+Median.Water.Level+Constant.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent
+
+Engineering + Watershed:
+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent
+
+Richness vars: 
+Max.Bounce+Decline.Rate+Pond.Skewness+Res.Time+Tot.Outlet.Restrict+Pond.Age+Pipe+Vnotch.Weir+Total...Veg.Species+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Greenspace.Percent+Average.Watershed.Slope+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.
+
+Attenuation vars:
+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Urban.Baseflow+Average.Watershed.Slope+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om
+
+TN/TP vars:
+Max.Bounce+Rain.Amount+Decline.Rate+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om
+
+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Pond.Skewness+Pond.Area.m2+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+Number.of.Outlets+Pond.Chain+Total...Veg.Species+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Com+per_om
+
+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Pond.Skewness+Pond.Area.m2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Chain+Rectangular.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Curve.Number+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+avg_bd..g.cm3.+avg_sed_cm+per_om
+
+Clarity vars:
+Max.Bounce+Decline.Rate+Inflow.Rate+Median.Water.Level+Outlet.Water.Level+Below.Outlet.Water.Level+Pond.Area.m2+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Mowed+Watershed.Area.m2+Greenspace.Percent+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_sed_cm+per_om
+
+Max.Bounce+Decline.Rate+Inflow.Rate+Median.Water.Level+Outlet.Water.Level+Below.Outlet.Water.Level+Pond.Area.m2+Res.Time+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict.Norm+HF.Outlet.Restrict.1+Number.of.Outlets+Pond.Age+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Total...Veg.Species+Mowed+Watershed.Area.m2+Greenspace.Percent+Urban.Baseflow+Average.Development.Age+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Canopy.Percent+avg_sed_cm+per_om
+
+Outflow vars:
+Max.Bounce+Decline.Rate+Temp.Variance+Median.Water.Level+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.m2+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+Pipe+Vnotch.Weir+Other.Weir+Total...Veg.Species+Mowed+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Surrounding.Land.Use.Res+Canopy.Percent+avg_sed_cm+per_om
+
+Trash Count Vars: Max.Bounce+Rain.Amount+Inflow.Rate+Temp.Variance+Median.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict.Norm+Pond.Age+Pond.Chain+Other.Weir+Other+Mowed+X..Native.Species.1+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Curve.Number+Urban.Baseflow+Surrounding.Land.Use.Com+Surrounding.Land.Use.GS+avg_sed_cm+per_om
+
+Peak Outflow vars: Max.Bounce+Inflow.Rate+Pond.Skewness+Res.Time+L.to.W.ratio+LF.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Other.Weir+Other+X..Native.Species.1+X..Non.native.species.1+Impervious.Percent.Recalc+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Surrounding.Land.Use.GS+Canopy.Percent+avg_bd..g.cm3.
+
+Chloride Change vars: Max.Bounce+Median.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Avg.Pond.Depth+Max.Pond.Depth+Total...Veg.Species+Watershed.Area.m2+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Curve.Number+Urban.Baseflow+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+avg_bd..g.cm3.+avg_sed_cm

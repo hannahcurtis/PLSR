@@ -1,0 +1,627 @@
+---
+title: "PLSR"
+author: "Hannah Curtis"
+date: "2024-03-28"
+output: html_document
+---
+
+Coding dump as I'm figuring out PLSR/PCA
+
+load packages and read variable file
+```{r}
+library(plsdepot)
+library(pls)
+library(corrr)
+library(ggcorrplot)
+library(ggplot2)
+library(FactoMineR)
+library(factoextra)
+
+vars <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Seminar_Vars2.csv")
+```
+
+Want to view how engineering and watershed variables influence bounce
+```{r}
+# we have too many variables for Linear Regression to work well given our # of observations
+# soooo... PCA!
+# (have some categorical/ one-hot encoded variables in here even though PCA is really only designed for continuous data)
+eng_water_variables <- data.frame(vars$L.to.W.ratio, vars$Number.of.Outlets, vars$Pond.Age, vars$Total...Veg.Species, vars$X..Native.Species, vars$X..Non.native.species, vars$LF.Outlet.Restrict, vars$Tot.Outlet.Restrict, vars$WA.PA, vars$Avg.Pond.Depth, vars$Max.Pond.Depth, vars$Res.Time, vars$Average.Watershed.Slope, vars$Impervious.Percent.Recalc, vars$Commercial.Percent, vars$Residential.Percent, vars$Greenspace.Percent, vars$Curve.Number, vars$Average.Development.Age, vars$Surrounding.Land.Use.Com, vars$Surrounding.Land.Use.Res, vars$Surrounding.Land.Use.GS)
+
+pca_result <- prcomp(eng_water_variables, scale=TRUE, center=TRUE)
+summary(pca_result)
+```
+Conclusion: First 8 principle components explains 90% of the variance
+What variables do those principle components relate to?
+```{r}
+rot<-pca_result$rotation[,1:8]
+imp<-pca_result$sdev / sum(pca_result$sdev)
+imp<-imp[1:8]
+rot_abs<-sweep(x = abs(rot), MARGIN = 2, STATS = colSums(abs(rot)), FUN = "/")*100
+#par(mar = c(10, 1, 1, 1))
+#plot(rowSums(abs(rot)*imp), xaxt="n", xlab="", ylab="Feature Importance")
+#axis(1, at=1:nrow(rot),labels=row.names(rot),las=3, cex=0.5)
+rowSums(abs(rot_abs)*imp)
+```
+
+Okay, well, nothing is really standing out here. Let's try some clustering all the same
+```{r}
+plot(pca_result$x[,1], pca_result$x[,2], cex=(pca_result$x[,3]-min(pca_result$x[,3])))
+```
+Welp, that doesn't show us much at all :(
+Time to try some PLSR so that we can do simple modeling without further dimensionality reduction
+(to understand how the above variables actually matter to the target)
+```{r}
+model<-plsr(
+  Pond.Skewness~L.to.W.ratio+Number.of.Outlets+Pond.Age+Total...Veg.Species+X..Native.Species+X..Non.native.species+LF.Outlet.Restrict+Tot.Outlet.Restrict+WA.PA+Avg.Pond.Depth+Max.Pond.Depth+Res.Time+Average.Watershed.Slope+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS,
+  data=vars, scale=TRUE, validation="LOO", ncomp=8
+)
+```
+Write function for PLSR plotting
+```{r}
+plot_plsr <- function(model, num_comps, color) {
+  # summary of model
+  summary(model)
+  
+  # visualize cross-validation plots
+  # can see model gets worse the more PLS components we add
+  validationplot(model)
+  validationplot(model, val.type="MSEP")
+  validationplot(model, val.type="R2")
+  
+  # plot predicted vs measured 
+  plot(model, plottype="scores", comps=1:num_comps)
+  plot(model, ncomp=num_comps, line=TRUE, xlab="Measured", ylab="Predicted", main="",  pch = 16, col = color, bg="transparent", cex.axis=1.5)
+  grid()
+  
+  # R-squared
+  print(R2(model))
+}
+
+# df.plsdepot <- plsreg1(df[,c(2:20,30,32:33)], df[, 34, drop = FALSE], comps=2)
+# plot(df.plsdepot, comps = c(1, 2))
+# #print(df.plsdepot)
+```
+
+```{r}
+plot_plsr(model, 4, "red")
+```
+Okay, so, bounce isn't all that correlated with the engineering variables.
+```{r}
+# Select principal components
+selected_components <- pca_result$x[, 1:7]  # K is the number of selected components
+
+# Split data into training and testing sets
+set.seed(123)  # for reproducibility
+train_index <- sample(1:nrow(selected_variables), 0.7 * nrow(selected_variables))
+train_data <- selected_variables[train_index, ]
+test_data <- selected_variables[-train_index, ]
+
+# Fit linear regression model
+response_variable = vars$Avg.Bounce[train_index]
+model <- lm(response_variable ~ ., data = train_data)
+
+# Make predictions on test data
+predictions <- predict(model, newdata = test_data)
+plot(predictions, vars$Avg.Bounce[-train_index])
+
+model = lm(Avg.Bounce ~ 
+     L.to.W.ratio+Number.of.Outlets+Pond.Age+Total...Veg.Species+X..Native.Species+X..Non.native.species+LF.Outlet.Restrict+Tot.Outlet.Restrict+WA.PA+Avg.Pond.Depth+Max.Pond.Depth+Res.Time+Average.Watershed.Slope+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS,
+   data=vars
+)
+summary(model)
+```
+
+Now, want to view how engineering, watershed, and  hydrologice influence response variables
+```{r}
+
+```
+
+
+
+
+
+Function for linear regressions
+```{r}
+lin_reg <- function(x, y, outlier_min, outlier_max, color, y_title) {
+  # Remove outliers
+  lower_threshold <- outlier_min
+  upper_threshold <- outlier_max
+
+  # Linear regression
+  regression <- lm(y[!(y < lower_threshold | y > upper_threshold)] ~ x[!(y < lower_threshold | y > upper_threshold)])
+
+  # Plot
+  plot(x[!(y < lower_threshold | y > upper_threshold)], y[!(y < lower_threshold | y > upper_threshold)], pch=16, col=color, xlab="Average Bounce (ft)", ylab=y_title)
+  abline(regression, col="black")
+  grid()
+
+  # Print R-squared
+  print(summary(regression)$r.squared)
+}
+```
+
+Linear regressions of bounce vs design/watershed variables
+```{r}
+
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+bounce_lm <- lin_reg(df$Max.Bounce, df$WA.PA, -100000, 1000000, "blue", "WA/PA")
+```
+
+Linear regressions of bounce vs species richness
+```{r}
+richness_lm <- lin_reg(vars$Avg.Bounce, vars$Total.Richness, 20, 100, "purple", "Total Species Richness")
+```
+
+Linear regressions of bounce vs aesthetics 
+```{r}
+# Average odor score
+odor_lm <- lin_reg(vars$Avg.Bounce, vars$Average.Odor, -3, 1, "lightgray", "Average Odor Score")
+
+# Average trash count
+trash_lm <- lin_reg(vars$Avg.Bounce, vars$Average.Trash.Count, 0, 40, "darkgray", "Average Trash Count")
+```
+Linear regressions of bounce vs aesthetics by storm
+```{r}
+# Read file for aesthetics by storm
+storm_aesthetic_dat <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Response_Variables/Aesthetic/Aesthetic_by_storm_seminar.csv")
+
+# Combine bounce by storm
+storm_bounce <- c(na.omit(vars$July.28.Bounce), na.omit(vars$Aug.14.Bounce), na.omit(vars$Sept.24.Bounce))
+
+# Odor by storm
+storm_odor_lm <- lin_reg(storm_bounce, storm_aesthetic_dat$Odor...5.to.5., -6, 6, "lightgray", "Average Odor Score")
+# Trash count by storm
+storm_trash_lm <- lin_reg(storm_bounce, storm_aesthetic_dat$X..Pieces.of.Trash, 0, 100, "darkgray", "Average Trash Count")
+```
+
+Linear regressions of bounce vs attenuation
+```{r}
+# concatenate bounce by storm
+# using raw bounce
+bounce_by_storm <- c(vars$July.4.Bounce, vars$July.28.Bounce, vars$Aug.14.Bounce, vars$Sept.6.Bounce, vars$Sept.24.Bounce, vars$Oct.13.Bounce)
+# using bounce normalized by rainfall
+norm_bounce_by_storm <- c(vars$July.4.Bounce.Norm, vars$July.28.Bounce.Norm, vars$Aug.14.Bounce.Norm, vars$Sept.6.Bounce.Norm, vars$Sept.24.Bounce.Norm, vars$Oct.13.Bounce.Norm)
+# concatenate attenuation by storm
+atten_by_storm <- c(vars$Atten.7.4, vars$Atten.7.28, vars$Atten.8.14, vars$Atten.9.6, vars$Atten.9.24, vars$Atten.10.13)
+
+# using average bounce and attenuation
+atten_lm <- lin_reg(vars$Avg.Bounce, vars$Avg.Atten, 0, 200, "cadetblue", "Attenuation (% Reduction in Inflow")
+# using raw bounce
+storm_atten_lm <- lin_reg(bounce_by_storm, atten_by_storm, 0, 200, "cadetblue", "Attenuation (% Reduction in Inflow")
+# using bounce normalized by rainfall
+storm_norm_atten_lm <- lin_reg(norm_bounce_by_storm, atten_by_storm, 0, 200, "cadetblue", "Attenuation (% Reduction in Inflow")
+```
+
+Linear regressions of average water quality parameters vs bounce
+```{r}
+# chloride
+# using raw bounce
+chlor_lm <- lin_reg(vars$Avg.Bounce, vars$Chloride..mg.L., 0, 300, "lightblue", "Chloride Concentration (mg/L)")
+# using bounce normalized by rainfall
+clor_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Chloride..mg.L., 0, 300, "lightblue", "Chloride Concentration (mg/L)")
+
+# DO
+# using raw bounce
+do_lm <- lin_reg(vars$Avg.Bounce, vars$YSI.DO..mg.L., 0, 15, "blue2", "DO (mg/L)")
+# using bounce normalized by rainfall
+do_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$YSI.DO..mg.L., 0, 15, "blue2", "DO (mg/L)")
+
+# water clarity
+# using raw bounce
+clar_lm <- lin_reg(vars$Avg.Bounce, vars$Secchi.Disk.Depth..cm., 0, 60, "blue4", "Secchi Depth (cm)")
+# using bounce normalized by rainfall
+clar_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Secchi.Disk.Depth..cm., 0, 60, "blue4", "Secchi Depth (cm)")
+
+# SPC
+# using raw bounce
+spc_lm <- lin_reg(vars$Avg.Bounce, vars$SPC, 0, 1000, "lightgreen", "SPC")
+# using bounce normalized by rainfall
+spc_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$SPC, 0, 1000, "lightgreen", "SPC")
+
+# sulfate
+# using raw bounce
+sulfate_lm <- lin_reg(vars$Avg.Bounce, vars$Sulfate..mg.L., 0, 11, "green2", "Sulfate Concentration (mg/L)")
+# using bounce normalized by rainfall
+sulfate_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Sulfate..mg.L., 0, 11, "green2", "Sulfate Concentration (mg/L)") 
+
+# TN
+# using raw bounce
+tn_lm <- lin_reg(vars$Avg.Bounce, vars$TN..ug.L., 0, 2000, "green4", "TN Concentration (ug/L)")
+# using bounce normalized by rainfall
+tn_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$TN..ug.L., 0, 2000, "green4", "TN Concentration (ug/L)")
+
+# TP
+# using raw bounce
+tp_lm <- lin_reg(vars$Avg.Bounce, vars$TP..ug.L., 0, 300, "turquoise", "TP Concentration (ug/L)")
+# using bounce normalized by rainfall
+tp_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$TP..ug.L., 0, 300, "turquoise", "TP Concentration (ug/L)")
+
+# TSS
+# using raw bounce
+tss_lm <- lin_reg(vars$Avg.Bounce, vars$TSS..mg.L., 0, 60, "turquoise2", "TSS (mg/L)")
+# using bounce normalized by rainfall
+tss_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$TSS..mg.L., 0, 60, "turquoise2", "TSS (mg/L)")
+
+# Nitrate
+# using raw bounce
+nitrate_lm <- lin_reg(vars$Avg.Bounce, vars$Nitrate..ug.L., 0, 150, "turquoise4", "Nitrate Concentration (ug/L)")
+# using bounce normalized by rainfall
+nitrate_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Nitrate..ug.L., 0, 150, "turquoise4", "Nitrate Concentration (ug/L)")
+
+# Ammonia
+# using raw bounce
+ammonia_lm <- lin_reg(vars$Avg.Bounce, vars$Ammonia..ug.L., 0, 200, "seagreen", "Ammonia Concentration (ug/L)")
+# using bounce normalized by rainfall
+ammonia_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Ammonia..ug.L., 0, 200, "seagreen", "Ammonia Concentration (ug/L)")
+
+```
+Linear regressions of average percent change in water quality parameters vs bounce
+```{r}
+# chloride
+# using raw bounce
+chlor_change_lm <- lin_reg(vars$Avg.Bounce, vars$Chloride.change, -500, 500, "lightblue", "Chloride Change (%)")
+# using bounce normalized by rainfall
+clor_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Chloride.change, -500, 500, "lightblue", "Chloride Change (%)")
+
+# DO
+# using raw bounce
+do_change_lm <- lin_reg(vars$Avg.Bounce, vars$DO.change, -500, 500, "blue2", "DO Change (%)")
+# using bounce normalized by rainfall
+do_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$DO.change, -500, 500, "blue2", "DO Change (%)")
+
+# water clarity
+# using raw bounce
+clar_change_lm <- lin_reg(vars$Avg.Bounce, vars$Secchi.change, -500, 500, "blue4", "Secchi Depth Change (%)")
+# using bounce normalized by rainfall
+clar_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Secchi.change, -500, 500, "blue4", "Secchi Depth Change (%)")
+
+# SPC
+# using raw bounce
+spc_change_lm <- lin_reg(vars$Avg.Bounce, vars$SPC.change, -500, 500, "lightgreen", "SPC Change (%)")
+# using bounce normalized by rainfall
+spc_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$SPC.change, -500, 500, "lightgreen", "SPC Change (%)")
+
+# sulfate
+# using raw bounce
+sulfate_change_lm <- lin_reg(vars$Avg.Bounce, vars$Sulfate.change, -500, 500, "green2", "Sulfate Change (%)")
+# using bounce normalized by rainfall
+sulfate_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Sulfate.change, -500, 500, "green2", "Sulfate Change (%)") 
+
+# TN
+# using raw bounce
+tn_change_lm <- lin_reg(vars$Avg.Bounce, vars$TN.change, -500, 500, "green4", "TN Change (%)")
+# using bounce normalized by rainfall
+tn_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$TN.change, -500, 500, "green4", "TN Change (%)")
+
+# TP
+# using raw bounce
+tp_change_lm <- lin_reg(vars$Avg.Bounce, vars$TP.change, -500, 500, "turquoise", "TP Change (%)")
+# using bounce normalized by rainfall
+tp_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$TP.change, -500, 500, "turquoise", "TP Change (%)")
+
+# TSS
+# using raw bounce
+tss_change_lm <- lin_reg(vars$Avg.Bounce, vars$TSS.change, -500, 500, "turquoise2", "TSS Change (%)")
+# using bounce normalized by rainfall
+tss_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$TSS.change, -500, 500, "turquoise2", "TSS Change (%)")
+
+# Nitrate
+# using raw bounce
+nitrate_change_lm <- lin_reg(vars$Avg.Bounce, vars$Nitrate.change, -500, 500, "turquoise4", "Nitrate Change (%)")
+# using bounce normalized by rainfall
+nitrate_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Nitrate.change, -500, 500, "turquoise4", "Nitrate Change (%)")
+
+# Ammonia
+# using raw bounce
+ammonia_change_lm <- lin_reg(vars$Avg.Bounce, vars$Ammonia.change, -500, 500, "seagreen", "Ammonia Change (%)")
+# using bounce normalized by rainfall
+ammonia_change_norm_lm <- lin_reg(vars$Avg.Bounce.Norm, vars$Ammonia.change, -500, 500, "seagreen", "Ammonia Change (%)")
+
+```
+Linear regressions of percent change in water quality parameters vs bounce by storm
+```{r}
+# Read water quality percent change files
+wq_change_7_28 <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Response_Variables/Water_Quality/Water_Quality_Change_7_28_seminar.csv")
+wq_change_8_14 <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Response_Variables/Water_Quality/Water_Quality_Change_8_14_seminar.csv")
+wq_change_9_24 <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Response_Variables/Water_Quality/Water_Quality_Change_9_24_seminar.csv")
+
+# chloride
+# concatenate chloride change
+chloride_change <- c(na.omit(wq_change_7_28$Chloride.Change....), na.omit(wq_change_8_14$Chloride.Change....), na.omit(wq_change_9_24$Chloride.Change....))
+chlor_change_storm_lm <- lin_reg(storm_bounce, chloride_change, -100, 600, "lightblue", "Chloride Change (%)")
+
+# DO
+# concatenate DO change
+DO_change <- c(na.omit(wq_change_7_28$YSI.DO.Change....), na.omit(wq_change_8_14$YSI.DO.Change....), na.omit(wq_change_9_24$YSI.DO.Change....))
+DO_change_storm_lm <- lin_reg(storm_bounce, DO_change, -100, 400, "blue2", "DO Change (%)")
+
+# Water Clarity
+# concatenate water clarity change
+secchi_change <- c(na.omit(wq_change_7_28$Secchi.Disk.Change....), na.omit(wq_change_8_14$Secchi.Disk.Change....), na.omit(wq_change_9_24$Secchi.Disk.Change....))
+clarity_change_storm_lm <- lin_reg(storm_bounce, secchi_change, -100, 100, "blue4", "Water Clarity Change (%)")
+
+# Sulfate
+# concatenate sulfate change
+sulfate_change <- c(na.omit(wq_change_7_28$Sulfate.Change....), na.omit(wq_change_8_14$Sulfate.Change....), na.omit(wq_change_9_24$Sulfate.Change....))
+sulfate_change_storm_lm <- lin_reg(storm_bounce, sulfate_change, -100, 500, "green2", "Sulfate Change (%)")
+
+# TN
+# concatenate TN change
+TN_change <- c(na.omit(wq_change_7_28$TN.Change....), na.omit(wq_change_8_14$TN.Change....), na.omit(wq_change_9_24$TN.Change....))
+TN_change_storm_lm <- lin_reg(storm_bounce, TN_change, -100, 500, "green4", "TN Change (%)")
+
+# TP
+# concatenate TP change
+TP_change <- c(na.omit(wq_change_7_28$TP.Change....), na.omit(wq_change_8_14$TP.Change....), na.omit(wq_change_9_24$TP.Change....))
+TP_change_storm_lm <- lin_reg(storm_bounce, TP_change, -100, 300, "turquoise", "TP Change (%)")
+
+# TSS
+# concatenate TSS change
+TSS_change <- c(na.omit(wq_change_7_28$TSS.Change....), na.omit(wq_change_8_14$TSS.Change....), na.omit(wq_change_9_24$TSS.Change....))
+TSS_change_storm_lm <- lin_reg(storm_bounce, TSS_change, -100, 1000, "turquoise2", "TSS Change (%)")
+
+# Nitrate 
+# concatenate nitrate change
+nitrate_change <- c(na.omit(wq_change_7_28$Nitrate.Change....), na.omit(wq_change_8_14$Nitrate.Change....), na.omit(wq_change_9_24$Nitrate.Change....))
+nitrate_change_storm_lm <- lin_reg(storm_bounce, nitrate_change, -100, 100, "turquoise4", "Nitrate Change (%)")
+
+# Ammonia
+# concatenate ammonia change
+ammonia_change <- c(na.omit(wq_change_7_28$Ammonia.Change....), na.omit(wq_change_8_14$Ammonia.Change....), na.omit(wq_change_9_24$Ammonia.Change....))
+ammonia_change_storm_lm <- lin_reg(storm_bounce, ammonia_change, -100, 150, "seagreen", "Ammonia Change (%)")
+```
+Linear regressions of water quality parameters vs bounce by storm
+```{r}
+# Read file with water quality from day after storm
+storm_wq <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Response_Variables/Water_Quality/Storm_Water_Quality.csv")
+
+# chloride
+chlor_storm_lm <- lin_reg(storm_bounce, storm_wq$Chloride..mg.L., 0, 3000, "lightblue", "Chloride Concentration (mg/L)")
+
+# DO
+DO_storm_lm <- lin_reg(storm_bounce, storm_wq$YSI.DO..mg.L., 0, 3000, "blue2", "DO (mg/L)")
+
+# Water Clarity
+clarity_storm_lm <- lin_reg(storm_bounce, storm_wq$Secchi.Disk.Depth..cm., 0, 3000, "blue4", "Secchi Depth (cm)")
+
+# SPC
+
+# Sulfate
+sulfate_storm_lm <- lin_reg(storm_bounce, storm_wq$Sulfate..mg.L., 0, 3000, "green2", "Sulfate Concentration (mg/L)")
+
+# TN
+TN_storm_lm <- lin_reg(storm_bounce, storm_wq$TN..ug.L., 0, 3000, "green4", "TN Concentration (ug/L)")
+
+# TP
+TP_storm_lm <- lin_reg(storm_bounce, storm_wq$TP..ug.L., 0, 3000, "turquoise", "TP Concentration (ug/L)")
+
+# TSS
+TSS_storm_lm <- lin_reg(storm_bounce, storm_wq$TSS..mg.L., 0, 3000, "turquoise2", "TSS (mg/L)")
+
+# Nitrate 
+nitrate_storm_lm <- lin_reg(storm_bounce, storm_wq$Nitrate..ug.L., 0, 3000, "turquoise4", "Nitrate Concentration (ug/L)")
+
+# Ammonia
+ammonia_storm_lm <- lin_reg(storm_bounce, storm_wq$Ammonia..ug.L., 0, 3000, "seagreen", "Ammonia Concentration (mg/L)")
+```
+
+
+Correlation Plot
+```{r}
+# check null values
+colSums(is.na(vars))
+
+# normalize data
+# scale function standardizes the data by subtracting the mean and dividing by the standard deviation
+pond_vars_normalized <- scale(vars[c(2:60)])
+
+# compute correlation matrix
+# plot shows strength and direction of correlations between variables
+corr_matrix <- cor(vars[c(2:60)])
+ggcorrplot(corr_matrix)
+
+ggcorrplot(corr_matrix) +
+  theme(
+    axis.text.x = element_text(size = 4),  # Adjust font size of x-axis text
+    axis.text.y = element_text(size = 5),  # Adjust font size of y-axis text
+    axis.title.x = element_text(size = 10),  # Adjust font size of x-axis label
+    axis.title.y = element_text(size = 10)  # Adjust font size of y-axis label
+  )
+```
+
+Run PCA 
+```{r}
+# Select subset of variables from the data matrix
+selected_variables <- data.frame(vars$L.to.W.ratio, vars$Number.of.Outlets, vars$Pond.Age, vars$Total...Veg.Species, vars$X..Native.Species.1, vars$X..Non.native.species.1, vars$LF.Outlet.Restrict, vars$Tot.Outlet.Restrict, vars$WA.PA, vars$Avg.Pond.Depth, vars$Max.Pond.Depth, vars$Res.Time, vars$Average.Watershed.Slope, vars$Impervious.Percent.Recalc, vars$Commercial.Percent, vars$Residential.Percent, vars$Greenspace.Percent, vars$Curve.Number, vars$Average.Development.Age)  # Replace with the names of variables you want to include
+#subset_data <- vars[, selected_variables]
+
+# Perform PCA on the subset of variables
+pca_result <- prcomp(selected_variables, scale. = TRUE)
+summary(pca_result)
+```
+
+```{r}
+# Select principal components
+selected_components <- pca_result$x[, 1:7]  # K is the number of selected components
+
+# Split data into training and testing sets
+set.seed(123)  # for reproducibility
+train_index <- sample(1:nrow(selected_variables), 0.7 * nrow(selected_variables))
+train_data <- selected_variables[train_index, ]
+test_data <- selected_variables[-train_index, ]
+
+# Fit linear regression model
+response_variable = vars$Avg.Bounce[train_index]
+model <- lm(response_variable ~ ., data = train_data)
+
+# Make predictions on test data
+predictions <- predict(model, newdata = test_data)
+plot(predictions, vars$Avg.Bounce[-train_index])
+```
+
+Write function for PLSR plotting
+```{r}
+plot_plsr <- function(model, num_comps, color) {
+  # summary of model
+  summary(model)
+  
+  # visualize cross-validation plots
+  # can see model gets worse the more PLS components we add
+  validationplot(model)
+  validationplot(model, val.type="MSEP")
+  validationplot(model, val.type="R2")
+  
+  # plot predicted vs measured 
+  plot(model, plottype="scores", comps=1:num_comps)
+  plot(model, ncomp=num_comps, line=TRUE, xlab="Measured", ylab="Predicted", main="",  pch = 16, col = color, bg="transparent", cex.axis=1.5)
+  grid()
+  
+  # R-squared
+  print(R2(model))
+}
+
+# df.plsdepot <- plsreg1(df[,c(2:20,30,32:33)], df[, 34, drop = FALSE], comps=2)
+# plot(df.plsdepot, comps = c(1, 2))
+# #print(df.plsdepot)
+```
+
+```{r}
+std_dev <- apply(vars, 2, sd)
+
+# Print the standard deviations for each variable
+print(std_dev)
+
+# Identify variables with low standard deviations
+low_variability <- names(std_dev[std_dev < 0.1])  # threshold is a value you define
+print(low_variability)
+```
+
+PLSR for predicting bounce with engineering/watershed variables
+```{r}
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+model_bounce <- plsr(
+  Avg.Bounce ~ L.to.W.ratio+Number.of.Outlets+Pond.Age+Total...Veg.Species+X..Native.Species+X..Non.native.species+LF.Outlet.Restrict+Tot.Outlet.Restrict+WA.PA+Avg.Pond.Depth+Max.Pond.Depth+Res.Time+Average.Watershed.Slope+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS,
+  data=vars, scale=TRUE, validation="LOO", ncomp=8
+)
+
+bounce_plot <- plot_plsr(model_bounce, 5, "blue")
+
+# # run PLSR
+# model_bounce <- plsr(
+#   Avg.Bounce ~ L.to.W.ratio+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Number.of.Outlets+Mowed+Pond.Age+Total...Veg.Species+X..Native.Species+X..Non.native.species+LF.Outlet.Restrict+Tot.Outlet.Restrict+WA.PA+Avg.Pond.Depth+Max.Pond.Depth+Res.Time+Average.Watershed.Slope+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS,
+#   data=vars, scale=TRUE, validation="CV", ncomp=8
+# )
+```
+
+PLSR for predicting species richness with hydrologic/engineering/watershed variables
+```{r}
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+model_richness <- plsr(
+  Total.Richness ~ L.to.W.ratio+Pond.Age+Total...Veg.Species+Number.of.Outlets+X..Native.Species+X..Non.native.species+LF.Outlet.Restrict+Tot.Outlet.Restrict+WA.PA+Avg.Pond.Depth+Max.Pond.Depth+Res.Time+Average.Watershed.Slope+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent,
+  data=vars, scale=TRUE, validation="CV", ncomp=2
+)
+
+richness_plot <- plot_plsr(model_richness, 2, "lightpink")
+
+# L.to.W.ratio+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Number.of.Outlets+Mowed+Pond.Age+Total...Veg.Species+X..Native.Species+X..Non.native.species+LF.Outlet.Restrict+Tot.Outlet.Restrict+LF.Outlet.Restrict.Norm+Tot.Outlet.Restrict.Norm+WA.PA+Avg.Pond.Depth+Max.Pond.Depth+Res.Time+Average.Watershed.Slope+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS+Avg.Bounce+Average.Decline.Rate+Urban.Baseflow+Median.Water.Level+Constant.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Inflow.Rate.Avg+Inflow.Wat.Norm.Avg+Inflow.Pond.Norm.Avg+tempvariance.avg+temprange.avg,
+#   data=vars, scale=TRUE, validation="CV", ncomp=8
+```
+
+PLSR for predicting attenuation with hydrologic/engineering/watershed variables
+```{r}
+# make this example reproducible
+set.seed(1)
+
+# run PLSR
+model_atten <- plsr(
+  Avg.Atten ~ L.to.W.ratio+Number.of.Outlets+Pond.Age+Total...Veg.Species+X..Native.Species+X..Non.native.species+LF.Outlet.Restrict+Tot.Outlet.Restrict+LF.Outlet.Restrict.Norm+Tot.Outlet.Restrict.Norm+WA.PA+Avg.Pond.Depth+Max.Pond.Depth+Res.Time+Average.Watershed.Slope+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Average.Development.Age+Avg.Bounce+Average.Decline.Rate+Urban.Baseflow+Median.Water.Level+Constant.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Inflow.Rate.Avg+Inflow.Wat.Norm.Avg+Inflow.Pond.Norm.Avg+tempvariance.avg+temprange.avg,
+  data=vars, scale=TRUE, validation="CV", ncomp=8
+)
+
+atten_plot <- plot_plsr(model_atten, 5, "thistle")
+```
+
+PLSR for predicting aesthetics with hydrologic/engineering/watershed variables
+```{r}
+
+```
+
+PLSR for predicting water quality with hydrologic/engineering/watershed variables
+```{r}
+
+```
+
+Calculating VIP score for species richness model
+```{r}
+
+df <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/Selected_storm_vars.csv")
+
+# blocks: hydrology, watershed, engineering, water quality
+WATER = c(0,0,0,0)
+ENGIN = c(0,0,0,0)
+HYDRO = c(1,1,0,0)
+QUALT = c(1,1,1,0)
+pond_path = rbind(WATER, ENGIN, HYDRO, QUALT)
+colnames(pond_path) = rownames(pond_path)
+innerplot(pond_path)
+```
+```{r}
+hydro_variables= c("Max.Bounce", "Rain.Amount", "Decline.Rate", "Inflow.Rate", "Inflow.Wat.Norm", "Inflow.Pond.Norm", "Temp.Variance", "Temp.Range", "Median.Water.Level", "Constant.Water.Level", "Contant.Water.Level.6in", "Outlet.Water.Level", "Below.Outlet.Water.Level", "Water.Level.25.75.Quantile", "Water.Level.10.90.Quantile", "Pond.Skewness")
+
+engin_variables = c("WA.PA", "Res.Time", "Avg.Pond.Depth", "Max.Pond.Depth", "L.to.W.ratio", "LF.Outlet.Restrict", "Tot.Outlet.Restrict", "Number.of.Outlets", "Pond.Age", "Pond.Chain", "Pipe", "Rectangular.Weir", "Vnotch.Weir", "Other.Weir", "Other", "Total...Veg.Species", "Mowed", "X..Native.Species.1", "X..Non.native.species.1")
+
+water_variables = c("WA.PA", "Res.Time", "Impervious.Percent.Recalc", "Commercial.Percent", "Residential.Percent", "Greenspace.Percent", "Curve.Number", "Urban.Baseflow", "Average.Watershed.Slope", "Average.Development.Age", "Surrounding.Land.Use.Com", "Surrounding.Land.Use.Res", "Surrounding.Land.Use.GS", "Canopy.Percent")
+
+qualt_varibles = c("Total.Richness")
+
+pond_blocks = list(hydro_variables, engin_variables, water_variables, qualt_varibles)
+```
+
+```{r}
+pond_modes= rep("A",4)
+
+# Fit the PLS regression model
+pls_model <- plspm(df, pond_path, pond_blocks, pond_modes)
+summary(pls_model)
+```
+
+```{r}
+plot(pls_model)
+```
+
+
+```{r}
+# Calculate VIP scores
+vip_scores <- VIP(pls_model)
+print(vip_scores)
+```
+
+Linear model to see which variables are most correlated with bounce
+```{r}
+model <- lm(
+  Total.Richness ~ Max.Bounce+Rain.Amount+Decline.Rate+Inflow.Rate+Inflow.Wat.Norm+Inflow.Pond.Norm+Temp.Variance+Temp.Range+Median.Water.Level+Constant.Water.Level+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+LF.Outlet.Restrict+Tot.Outlet.Restrict+Number.of.Outlets+Pond.Age+Pond.Chain+Pipe+Rectangular.Weir+Vnotch.Weir+Other.Weir+Other+Total...Veg.Species+Mowed+X..Native.Species.1+X..Non.native.species.1+Impervious.Percent.Recalc+Commercial.Percent+Residential.Percent+Greenspace.Percent+Curve.Number+Urban.Baseflow+Average.Watershed.Slope+Average.Development.Age+Surrounding.Land.Use.Com+Surrounding.Land.Use.Res+Surrounding.Land.Use.GS,
+  data=df
+)
+summary(model)
+anova(model)
+```
+
+Linear model using results from PCA to see which variables are most correlated with bounce
+```{r}
+library(car)
+
+lm_model <- lm(
+  Max.Bounce ~ PC1+PC2+PC3+PC4+PC5+PC6+PC7+PC8,
+  data=df
+)
+summary(model)
+anova(model)
+
+crPlots(lm_model)
+```

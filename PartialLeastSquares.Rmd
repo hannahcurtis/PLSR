@@ -1,0 +1,640 @@
+---
+title: "PLSR_practice"
+author: "Hannah Curtis"
+date: "2023-11-17"
+output: html_document
+---
+Load packages:
+```{r}
+library(plsdepot)
+library(pls)
+```
+
+
+Read files:
+```{r}
+# July 29 Storm
+water_quality_j29 <- read.csv("July29_Water_Quality_AGU.csv")
+pond_information_j29 <- read.csv("AGU_Pond_Information.csv")
+water_level_j29 <- read.csv("July_Water_Levels.csv")
+water_temp_j29 <- read.csv("July_Temp.csv")
+
+# August 15 Storm
+water_quality_a15 <- read.csv("Aug15_Water_Quality_AGU.csv")
+pond_information_a15 <- read.csv("AGU_Pond_Information.csv")
+water_level_a15 <- read.csv("August_Water_Levels.csv")
+water_temp_a15 <- read.csv("August_Temp.csv")
+
+# September 26 Storm
+water_quality_s26 <- read.csv("Sept_26_Water_Quality_AGU.csv")
+pond_information_s26 <- read.csv("AGU_Pond_Information.csv")
+water_level_s26 <- read.csv("September_Water_Levels.csv")
+water_temp_s26 <- read.csv("September_Temp.csv")
+
+```
+
+
+Create data frame with predictor variables and response variables:
+```{r}
+# July 29
+pond_vars_j29 <- data.frame(
+  pondwsarea = pond_information_j29$PA.WA, 
+  imperv = pond_information_j29$Impervious.Percent, comm = pond_information_j29$Commercial.Percent, res = pond_information_j29$Residential.Percent,   gspace = pond_information_j29$Greenspace.Percent, curvenum = pond_information_j29$Curve.Number, restime = pond_information_j29$PV.WA, pdepth =     pond_information_j29$Pond.Depth.ft, lwratio = pond_information_j29$L.to.W.ratio, chain = pond_information_j29$Pond.Chain,
+  pipe = pond_information_j29$Pipe, rectweir = pond_information_j29$Rectangular.Weir, vweir = pond_information_j29$Vnotch.Weir, otherweir =          pond_information_j29$Other.Weir, otherout = pond_information_j29$Other, mowed = pond_information_j29$Mowed, 
+  declinerate = pond_information_j29$Decline.Rate, lfrestrict = pond_information_j29$Low.Flow.Outlet.Restrictiveness, 
+  totrestrict = pond_information_j29$Total.Outlet.Restrictiveness, richness = pond_information_j29$Species.Richness, 
+  chloride = water_quality_j29$Chloride.mg.L, TSS = water_quality_j29$TSS.mg.L, 
+  TN = water_quality_j29$TN, TP = water_quality_j29$TP, 
+  secchi = water_quality_j29$Secchi.Depth, 
+  do_percent = water_quality_j29$DO.., 
+  do_mgl = water_quality_j29$DO.mg.L, 
+  sulfate = water_quality_j29$Sulfate.mg.L,
+  row.names = paste(pond_information_j29$Pond.Name, 1)
+)
+
+# August 15
+pond_vars_a15 <- data.frame(
+  pondwsarea = pond_information_a15$PA.WA, 
+  imperv = pond_information_a15$Impervious.Percent, comm = pond_information_a15$Commercial.Percent, res = pond_information_a15$Residential.Percent,   gspace = pond_information_a15$Greenspace.Percent, curvenum = pond_information_a15$Curve.Number, restime = pond_information_a15$PV.WA, pdepth =     pond_information_a15$Pond.Depth.ft, lwratio = pond_information_a15$L.to.W.ratio, chain = pond_information_a15$Pond.Chain,
+  pipe = pond_information_a15$Pipe, rectweir = pond_information_a15$Rectangular.Weir, vweir = pond_information_a15$Vnotch.Weir, otherweir =          pond_information_a15$Other.Weir, otherout = pond_information_a15$Other, mowed = pond_information_a15$Mowed, 
+  declinerate = pond_information_a15$Decline.Rate, lfrestrict = pond_information_a15$Low.Flow.Outlet.Restrictiveness, 
+  totrestrict = pond_information_a15$Total.Outlet.Restrictiveness, richness = pond_information_a15$Species.Richness, 
+  chloride = water_quality_a15$Chloride.mg.L, TSS = water_quality_a15$TSS.mg.L, 
+  TN = water_quality_a15$TN, TP = water_quality_a15$TP, 
+  secchi = water_quality_a15$Secchi.Depth, 
+  do_percent = water_quality_a15$DO.., 
+  do_mgl = water_quality_a15$DO.mg.L, 
+  sulfate = water_quality_a15$Sulfate.mg.L,
+  row.names = paste(pond_information_a15$Pond.Name, 2)
+)
+
+# September 26
+pond_vars_s26 <- data.frame(
+  pondwsarea = pond_information_s26$PA.WA, 
+  imperv = pond_information_s26$Impervious.Percent, comm = pond_information_s26$Commercial.Percent, res = pond_information_s26$Residential.Percent,   gspace = pond_information_s26$Greenspace.Percent, curvenum = pond_information_s26$Curve.Number, restime = pond_information_s26$PV.WA, pdepth =     pond_information_s26$Pond.Depth.ft, lwratio = pond_information_s26$L.to.W.ratio, chain = pond_information_s26$Pond.Chain,
+  pipe = pond_information_s26$Pipe, rectweir = pond_information_s26$Rectangular.Weir, vweir = pond_information_s26$Vnotch.Weir, otherweir =          pond_information_s26$Other.Weir, otherout = pond_information_s26$Other, mowed = pond_information_s26$Mowed, 
+  declinerate = pond_information_s26$Decline.Rate, lfrestrict = pond_information_s26$Low.Flow.Outlet.Restrictiveness, 
+  totrestrict = pond_information_s26$Total.Outlet.Restrictiveness, richness = pond_information_s26$Species.Richness, 
+  chloride = water_quality_s26$Chloride.mg.L, TSS = water_quality_s26$TSS.mg.L, 
+  TN = water_quality_s26$TN, TP = water_quality_s26$TP, 
+  secchi = water_quality_s26$Secchi.Depth, 
+  do_percent = water_quality_s26$DO.., 
+  do_mgl = water_quality_s26$DO.mg.L, 
+  sulfate = water_quality_s26$Sulfate.mg.L,
+  row.names = paste(pond_information_s26$Pond.Name, 3)
+)
+```
+
+```{r}
+# concatenate the dataframes together
+pond_vars <- rbind(pond_vars_j29, pond_vars_a15, pond_vars_s26)
+```
+
+```{r}
+#getting max bounce, temp range/variance, attenuation for each storm
+storm_dates = rbind(
+  # start, end, amount it rained
+  #c("7/5/23 0:00", "7/19/23 0:00", 1.68),
+  c("7/28/23 0:00", "8/8/23 0:00", 1.51),
+  c("8/14/23 0:00", "8/24/23 0:00", 1.59),
+  #c("9/6/23 0:00", "9/20/23 0:00", 0.31),
+  #c("9/24/23 0:00", "10/4/23 0:00", 1.51)
+  c("10/13/23 0:00", "10/18/23 0:00", 1.21)
+)
+
+get_max_bounce <- function(pond_wl) {
+  min_wl <- min(pond_wl)
+  max_wl <- max(pond_wl)
+  return(max_wl-min_wl)
+  #return(((max_wl-min_wl)/max_wl)*100)
+}
+
+get_temp_variance <- function(pond_temp) {
+  return(var(pond_temp))
+}
+
+get_temp_range <- function(pond_temp) {
+  min_pt <- min(pond_temp)
+  max_pt <- max(pond_temp)
+  return(max_pt-min_pt)
+}
+
+# percent reduction in peak inflow
+get_attenuation <- function(inflow, outflow) {
+  max_inflow <- max(inflow)
+  max_outflow <- max(outflow)
+  #return(max_inflow - max_outflow)
+  return(((max_inflow-max_outflow)/max_inflow)*100)
+}
+
+
+```
+
+
+```{r}
+#adding max bounce, temp range/variance to data frame
+get_storm_data <- function(pond_name, pond_df, storm_dates) {
+  df <- data.frame()
+  for (i in 1:nrow(storm_dates)) {
+    start_idx = which(pond_df$DateTime == storm_dates[i,1])
+    end_idx = which(pond_df$DateTime == storm_dates[i,2])
+    # if the date doesn't exist, skip it for this pond
+    if (length(start_idx) == 0 | length(end_idx) == 0) {
+      print(paste("skipping date:",storm_dates[i,1]))
+      next
+    }
+
+    df = rbind(df, data.frame(
+      maxbounce = get_max_bounce(pond_df$Depth.ft[start_idx:end_idx]),
+      tempvariance = get_temp_variance(pond_df$Temp.C[start_idx:end_idx]),
+      temprrange = get_temp_range(pond_df$Temp.C[start_idx:end_idx]),
+      rainamount = as.double(storm_dates[i,3]),
+      row.names = paste(pond_name, i)
+    ))
+  }
+
+  return(df)
+}
+
+storm_df <- data.frame()
+for (pond_name in water_quality_a15$Pond.Name) {
+  #print(paste("reading pond",pond_name))
+  pond_df <- read.csv(paste("../Water_Level/",pond_name,"/",pond_name,"_Water_Level.csv", sep=""))
+  # grab the data for each storm
+  pond_storm_df <- get_storm_data(pond_name, pond_df, storm_dates)
+
+  storm_df <- rbind(storm_df, pond_storm_df)
+}
+```
+
+
+Add the storm data to the pond information and sampling data
+```{r}
+# extend pond_vars to the number of storms we have
+static_pond_vars <- pond_vars[1:13,]
+# rename the rows
+static_pond_vars_df <- data.frame()
+# replicate them and rename again
+for (i in 1:nrow(storm_dates)) {
+  row.names(static_pond_vars) <- paste(water_quality_a15$Pond.Name,i)
+  static_pond_vars_df <- rbind(static_pond_vars_df, static_pond_vars)
+}
+df = merge(static_pond_vars_df, storm_df, by="row.names")
+#df = merge(pond_vars[19:37,], storm_df, by="row.names")
+df
+```
+
+Limit to one storm if desired
+```{r}
+#df <- df[grepl(" 2",df$Row.names, fixed = TRUE),]
+```
+
+```{r}
+get_attenuation_data <- function(pond_name, pond_df, storm_dates) {
+  df <- data.frame()
+  for (i in 1:nrow(storm_dates)) {
+    start_idx = which(pond_df$DateTime == storm_dates[i,1])
+    end_idx = which(pond_df$DateTime == storm_dates[i,2])
+    # if the date doesn't exist, skip it for this pond
+    if (length(start_idx) == 0 | length(end_idx) == 0) {
+      print(paste(pond_name,"skipping date:",storm_dates[i,1]))
+      next
+    }
+
+    df = rbind(df, data.frame(
+      atten = get_attenuation(pond_df$Inflow.cfs[start_idx:end_idx], pond_df$Outflow.cfs[start_idx:end_idx]),
+      row.names = paste(pond_name, i)
+    ))
+  }
+
+  return(df)
+}
+
+atten_df <- data.frame()
+for (pond_name in water_quality_a15$Pond.Name) {
+  #print(paste("reading pond",pond_name))
+  pond_df <- read.csv(paste("../Water_Level/",pond_name,"/",pond_name,"_Inflow_Outflow.csv", sep=""))
+  # grab the data for each storm
+  pond_atten_df <- get_attenuation_data(pond_name, pond_df, storm_dates)
+
+  atten_df <- rbind(atten_df, pond_atten_df)
+}
+```
+```{r}
+row.names(df) = df$Row.names
+df = df[,-c(1)]
+df = merge(df, atten_df, by="row.names")
+#df = merge(pond_vars[19:37,], storm_df, by="row.names")
+df
+
+save.df <- write.csv(df, file = "/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Seminar/AGU_vars.csv", row.names=TRUE)
+```
+
+
+```{r}
+normalized_area <- df$watershedarea/df$pondarea
+plot(df$pondarea, df$maxbounce)
+```
+
+Step by step PLSR
+```{r}
+# make this example reproducible
+set.seed(1)
+
+#fit PCR model
+# use secchi depth as response variable
+# scale makes each variable have a mean of 0 and standard deviation of 1
+# validation tells R to use leave-one-out cross validation
+
+model <- plsr(
+  secchi~ pondarea+watershedarea+outletnum+outletsize+pipe+rectweir
+  +vweir+otherweir+otherout+maxbounce+tempvariance+temprrange,
+  data=df, scale=TRUE, validation="LOO"
+)
+
+# validation:RMSEP tells us if we just use intecept, RMSE is 44.17, adding first PLS component, RMSE is 54.96, adding second PLS component, RMSE is 65.07. Optimal to just use intercept in model
+# training: % variance explained tells us that using just first PLS component, we can explain 42.99% of variation in response variable, and adding second PLS component can explain 66.52% of variation in response variable.
+summary(model)
+
+# visualize cross-validation plots
+# can see model gets worse the more PLS components we add
+validationplot(model)
+validationplot(model, val.type="MSEP")
+validationplot(model, val.type="R2")
+```
+
+```{r}
+plot(model)
+biplot(model)
+coefplot(model)
+```
+```{r}
+df.plsdepot <- plsreg1(df[,c(2,3,4,5,6,15,16,17)], df[, 11, drop = FALSE], comps=3)
+plot(df.plsdepot, comps = c(1, 2))
+```
+
+Step by step PCA
+``` {r}
+library('corrr')
+library(ggcorrplot)
+library("FactoMineR")
+library("factoextra")
+
+# check null values
+colSums(is.na(df))
+
+# normalize data
+# scale function standardizes the data by subtracting the mean and dividing by the standard deviation
+pond_vars_normalized <- scale(df[c(2:20)])
+
+# compute correlation matrix
+# plot shows strength and direction of correlations between variables
+corr_matrix <- cor(df[c(2:20)])
+ggcorrplot(corr_matrix)
+
+# apply PCA
+# summary shows information about proportion of variance explained by each principal component and loadings (weights assigned to each variable in each principal component)
+data.pca <- princomp(corr_matrix, cex=0.6)
+summary(data.pca)
+
+# loading matrix
+# principal component loadings: coefficients that define the linear combination of the original variables that make up each principal component
+# shows loadings of only the first two principal components
+data.pca$loadings[, 1:2]
+
+# scree plot
+# visualize importance of each principal component--helps determine number of principal components to retain for further analysis
+fviz_eig(data.pca, addlabels = TRUE)
+```
+
+```{r}
+line_colors <- c(rep("Watershed characterstics",7),rep("Engineering design",12))
+
+# biplot of attributes
+# shows impact of each attribute on each of the principal components
+fviz_pca_var(data.pca, cex.axis=5, col.var=line_colors, geom=c("arrow"), palette=c("tan2","springgreen4"))
+
+p <- fviz_pca_var(data.pca)
+
+# Define a vector of colors for specific variables
+variable_colors <- c("red", "blue", "green", "purple")
+
+# Customize line colors for specific variables
+#p + geom_segment(aes(x = 0, y = 0, xend = cos(var$coord * pi/180), yend = sin(var$coord * pi/180), color = as.factor(var$contrib)), linewidth = 1) +
+#  scale_color_manual(values = variable_colors)
+
+# contribution of each variable
+# determines how much each variable is represented in a given component
+# low value means variable is not perfectly represented by that component; high value means a good representation of the variable on that component.
+fviz_cos2(data.pca, choice = "var", axes = 1:2)
+
+# combine biplot with cos2
+fviz_pca_var(data.pca, col.var = "contrib",
+            gradient.cols = c("black", "tan2", "springgreen4"),
+            repel = TRUE)
+```
+
+```{r}
+# make this example reproducible
+set.seed(1)
+
+#fit PCR model
+# use secchi depth as response variable
+# scale makes each variable have a mean of 0 and standard deviation of 1
+# validation tells R to use leave-one-out cross validation
+
+model <- plsr(
+  maxbounce ~ pondwsarea+imperv+comm+res+gspace+curvenum+restime+pdepth+lwratio+declinerate+lfrestrict+totrestrict+rainamount,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+#pondwsarea, imperv, comm, res, gspace, curvenum, restime, lwratio, chain, pipe, rectweir, vweir, otherweir, otherout, mowed, declinerate, lfrestrict, totrestrict 
+
+# validation:RMSEP tells us if we just use intecept, RMSE is 44.17, adding first PLS component, RMSE is 54.96, adding second PLS component, RMSE is 65.07. Optimal to just use intercept in model
+# training: % variance explained tells us that using just first PLS component, we can explain 42.99% of variation in response variable, and adding second PLS component can explain 66.52% of variation in response variable.
+summary(model)
+
+# visualize cross-validation plots
+# can see model gets worse the more PLS components we add
+validationplot(model)
+validationplot(model, val.type="MSEP")
+validationplot(model, val.type="R2")
+
+par(pty="s")
+
+plot(model, plottype="scores", comps=1:5)
+plot(model, ncomp=3, line=TRUE, main="",  xlab="", ylab="", pch = 16, col = "dodgerblue", bg="transparent", cex.axis=1.5)
+grid()
+
+
+#df.plsdepot <- plsreg1(df[,c(2:10,18:19,32:33)], df[, 30, drop = FALSE], comps=2)
+#plot(df.plsdepot, comps = c(1, 2))
+
+print(R2(model))
+
+
+#print(df.plsdepot)
+#pipe+rectweir+vweir+otherweir+otherout+mowed
+```
+
+```{r}
+
+library(plsdepot)
+library(ggplot2)
+df.plsdepot <- plsreg1(df[,c(2:9,18:19,32:33)], df[, 30, drop = FALSE], comps=2)
+data<-df.plsdepot$cor.xyt
+data<-as.data.frame(data)
+
+circleFun <- function(center = c(0,0),diameter = 1, npoints = 100){
+    r = diameter / 2
+    tt <- seq(0,2*pi,length.out = npoints)
+    xx <- center[1] + r * cos(tt)
+    yy <- center[2] + r * sin(tt)
+    return(data.frame(x = xx, y = yy))
+}
+
+dat <- circleFun(c(0,0),2,npoints = 100)
+
+ggplot(data=data, aes(t1,t2))+
+  ylab("")+xlab("")+ggtitle("Circle of Correlations                                                                     ")+
+  theme_bw() +geom_text(aes(label=rownames(data), 
+                            colour=ifelse(rownames(data)!='symboling', 'orange','blue')))+
+  scale_color_manual(values=c("orange","#6baed6"))+
+  scale_x_continuous(breaks = c(-1,-0.5,0,0.5,1))+
+  scale_y_continuous(breaks = c(-1,-0.5,0,0.5,1))+
+  coord_fixed(ylim=c(-1, 1),xlim=c(-1, 1))+xlab("axis 1")+ 
+  ylab("axis 2")+ theme(axis.line.x = element_line(color="darkgrey"),
+                        axis.line.y = element_line(color="darkgrey"))+
+  geom_path(data=dat,aes(x,y), colour = "darkgrey")+
+  theme(legend.title=element_blank())+
+  theme(axis.ticks = element_line(colour = "grey"))+
+  theme(axis.title = element_text(colour = "darkgrey"))+
+  theme(axis.text = element_text(color="darkgrey"))+
+  theme(legend.position='none')+
+  theme(plot.title = element_text(color="#737373")) +
+  theme(panel.grid.minor = element_blank()) +
+  annotate("segment",x=0, y=0, xend= 0.60, yend= 0.40, color="black",
+           arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= 0.4, yend= 0.7, color="blue",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= 0.1, yend= 0.45, color="green",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= 0.45 , yend=-0.35, color="blue",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= 0.45, yend= -0.70, color="green",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= -0.2, yend= -0.40, color="gold",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= -0.9, yend= -0.1, color="gold",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= -0.9, yend= -0.1, color="gold",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= -0.4, yend= 0.4, color="green",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= -0.4, yend= 0.20, color="gold",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= 0.04, yend= 0.93, color="#6baed6",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))+
+  annotate("segment",x=0, y=0, xend= 0.70, yend= 0.40, color="#6baed6",
+           alpha=0.3,arrow=arrow(length=unit(0.3,"cm")))
+
+```
+
+
+```{r}
+model <- lm(
+  maxbounce ~ pondwsarea+imperv+comm+res+gspace+curvenum+restime+pdepth+lwratio+declinerate+lfrestrict+totrestrict+temprrange+tempvariance+rainamount,
+  data=df
+)
+summary(model)
+anova(model)
+
+par(pty="s")
+
+predplot(model,xlab="", ylab="", main="",  pch = 16, col = "dodgerblue", bg="transparent", cex.axis=1.5, xlim=c(0,5), ylim=c(0,5))
+abline(a = 0, b = 1, col="black")
+grid()
+
+```
+
+```{r}
+plot(df$maxbounce, df$richness)
+plot(df$maxbounce, df$atten)
+
+model <- plsr(
+  richness ~ maxbounce,
+  data=df, scale=TRUE, validation="CV", ncomp=1
+)
+
+plot(model, plottype="scores", comps=1)
+plot(model, ncomp=1, line=TRUE, asp=1, main="",  pch = 16, col = "dodgerblue", bg="transparent")
+grid()
+
+model <- plsr(
+  atten ~ maxbounce,
+  data=df, scale=TRUE, validation="CV", ncomp=1
+)
+
+plot(model, plottype="scores", comps=1)
+plot(model, ncomp=1, line=TRUE, asp=1, main="",  pch = 16, col = "dodgerblue", bg="transparent")
+grid()
+```
+
+```{r}
+set.seed(1)
+rich_dataframe <- read.csv("richness_by_pond.csv")
+
+model <- plsr(
+  #richness ~ pondwsarea+imperv+comm+res+gspace+curvenum+restime+pdepth+lwratio+pipe+rectweir+vweir+otherweir+otherout+mowed+declinerate+lfrestrict+totrestrict+temprange+tempvar+avgbounce, 
+  #data=rich_dataframe,
+  richness ~ pondwsarea+imperv+comm+res+gspace+curvenum+restime+pdepth+chain+lwratio+declinerate+lfrestrict+totrestrict,#+temprrange+tempvariance+maxbounce+rainamount, 
+  data=df,
+  scale=TRUE, validation="LOO", ncomp=5
+)
+
+#pondwsarea, imperv, comm, res, gspace, curvenum, restime, lwratio, chain, pipe, rectweir, vweir, otherweir, otherout, mowed, declinerate, lfrestrict, totrestrict 
+
+summary(model)
+
+# visualize cross-validation plots
+# can see model gets worse the more PLS components we add
+validationplot(model)
+validationplot(model, val.type="MSEP")
+validationplot(model, val.type="R2")
+
+par(pty="s")
+
+plot(model, plottype="scores", comps=1:5)
+predplot(model)
+plot(model, ncomp=3, line=TRUE, xlab="", ylab="", main="",  pch = 16, col = "lightpink", bg="transparent", cex.axis=1.5, xlim=c(10,50), ylim=c(10,50))
+grid()
+
+#df.plsdepot <- plsreg1(df[,c(2:20,30,32:33)], df[, 21, drop = FALSE], comps=2)
+#plot(df.plsdepot, comps = c(1, 2))
+
+print(R2(model))
+
+```
+```{r}
+model <- lm(
+  #richness ~ pondwsarea+imperv+comm+res+gspace+curvenum+restime+pdepth+lwratio+pipe+rectweir+vweir+otherweir+otherout+mowed+declinerate+lfrestrict+totrestrict+maxbounce+temprrange+rainamount,
+  richness ~ pondwsarea+imperv+comm+res+gspace+curvenum+restime+pdepth+lwratio+mowed+declinerate+lfrestrict+totrestrict+maxbounce+temprrange+rainamount,
+  data=df
+)
+summary(model)
+anova(model)
+plot(model)
+```
+
+```{r}
+# make this example reproducible
+set.seed(1)
+
+library(pls)
+library(plsdepot)
+
+model <- plsr(
+  atten ~ pondwsarea+imperv+comm+res+gspace+curvenum+restime+pdepth+lwratio+pipe+rectweir+vweir+otherweir+otherout+mowed+declinerate+lfrestrict+totrestrict+maxbounce+temprrange+rainamount+maxbounce,
+  data=df, scale=TRUE, validation="CV", ncomp=8
+)
+
+#pondwsarea, imperv, comm, res, gspace, curvenum, restime, lwratio, chain, pipe, rectweir, vweir, otherweir, otherout, mowed, declinerate, lfrestrict, totrestrict 
+
+# validation:RMSEP tells us if we just use intecept, RMSE is 44.17, adding first PLS component, RMSE is 54.96, adding second PLS component, RMSE is 65.07. Optimal to just use intercept in model
+# training: % variance explained tells us that using just first PLS component, we can explain 42.99% of variation in response variable, and adding second PLS component can explain 66.52% of variation in response variable.
+summary(model)
+
+# visualize cross-validation plots
+# can see model gets worse the more PLS components we add
+validationplot(model)
+validationplot(model, val.type="MSEP")
+validationplot(model, val.type="R2")
+
+plot(model, plottype="scores", comps=1:5)
+plot(model, ncomp=5, line=TRUE, xlab="", ylab="", main="",  pch = 16, col = "thistle", bg="transparent", cex.axis=1.5, xlim=c(0,100), ylim=c(0,100))
+grid()
+
+print("\n\n\nR2")
+print(R2(model))
+
+df.plsdepot <- plsreg1(df[,c(2:20,30,32:33)], df[, 34, drop = FALSE], comps=2)
+plot(df.plsdepot, comps = c(1, 2))
+#print(df.plsdepot)
+#pipe+rectweir+vweir+otherweir+otherout+mowed
+```
+```{r}
+model <- lm(
+  atten ~ pondwsarea+imperv+comm+res+gspace+curvenum+restime+pdepth+lwratio+pipe+rectweir+vweir+otherweir+otherout+mowed+declinerate+lfrestrict+totrestrict+maxbounce+temprrange+rainamount,
+  data=df
+)
+summary(model)
+anova(model)
+
+par(pty="s")
+predplot(model,xlab="", ylab="", main="",  pch = 16, col = "thistle", bg="transparent", cex.axis=1.5, xlim=c(0,100), ylim=c(0,100))
+abline(a = 0, b = 1)
+grid()
+
+```
+
+linear regression attenuation vs bounce:
+```{r}
+# Attenuation
+library(MASS)
+
+outlier_threshold <- 62
+outliers <- df$atten > outlier_threshold
+#norm_bounce <- df$maxbounce/df$rainamount
+#norm_atten <- df$atten/df$rainamount
+df$adjbounce <- df$maxbounce / df$rainamount
+atten_reg <- lm(df$atten[!outliers] ~ df$maxbounce[!outliers])
+
+plot(df$maxbounce[!outliers], df$atten[!outliers], pch=16, col="thistle", xlab="", ylab="", cex.axis=1.5)
+abline(atten_reg, col="black")
+grid()
+
+plot(df$maxbounce, df$atten, pch=16, col="thistle", xlab="", ylab="", cex.axis=1.5)
+abline(atten_reg, col="black")
+grid()
+
+predplot(atten_reg)
+
+atten_sum <- summary(atten_reg)
+print(atten_sum)
+
+
+#plot(df$atten, predict(atten_reg))
+```
+```{r}
+write.csv(df, "/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Variables.csv", row.names=FALSE)
+```
+
+Linear regression species richness vs bounce:
+```{r}
+rich_bounce_data <- read.csv("Rich_vs_Bounce.csv")
+rich_bounce <- read.csv("richness_bounce.csv")
+
+outlier_threshold <- 20
+outliers <- rich_bounce$richness < outlier_threshold
+
+richness_reg <- lm(rich_bounce_data$richness ~ rich_bounce_data$avgbounce)
+richness_reg_2 <- lm(rich_bounce$richness[!outliers] ~ rich_bounce$bounce[!outliers])
+
+print(summary(richness_reg_2))
+
+plot(rich_bounce$bounce[!outliers], rich_bounce$richnes[!outliers], pch=16, col="lightpink", xlab="", ylab="", cex.axis=1.5)
+abline(richness_reg_2, col="black")
+grid()
+
+#plot(rich_bounce_data$avgbounce, rich_bounce_data$richness, pch=16, col="lightpink", xlab="", ylab="")
+#abline(richness_reg, col="black")
+#grid()
+
+rich_bounce_reg_sum <- summary(richness_reg_2)
+print(rich_bounce_reg_sum$r.squared)
+```
+```{r}
+plot(df$maxbounce, df$atten,col=as.factor(substr(df$Row.names, 1, 5)))
+#legend(7,4.3,unique(substr(df$Row.names,1,5)),col=1:length(df$Row.names),pch=1)
+```
+
