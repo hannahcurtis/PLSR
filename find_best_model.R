@@ -1,5 +1,3 @@
-# Algorithm to run PLSR model and select variables based on VIP score/AIC
-
 library(vip)
 library(pls)
 
@@ -33,11 +31,11 @@ get_ncomp_for_min_aic <- function(model) {
   
   # for the number of components that we're selecting
   for (k in 1:dim(model$residuals)[3]) {
-    aic = compute_aic(model, i) 
+    aic = compute_aic(model, k)
     
     if (aic < min_aic) {
       min_aic <- aic
-      min_aic_ncomp <- i
+      min_aic_ncomp <- k
     }
   }
   return(min_aic_ncomp)
@@ -89,19 +87,17 @@ eval_vars <- function(X, Y, df, ncomp, to_remove=NULL, method="q-score") {
 
 iter_fun <- function(X, Y, df, ncomp, inner_func, comp_func, method) {
   sub_model_results <- get_blank_df()
-  # try removing each variable individually and compute the q-score
+  # try removing each variable individually and compute the inner_func
   for (to_remove in X) {
     res_df <- eval_vars(X, Y, df, min(ncomp, length(X)-2), to_remove, method)
+    #print(paste("\t", to_remove, ":", res_df$aic))
     sub_model_results <- rbind(sub_model_results, res_df)
   }
-  # select the row with the highest q-score
+  # select the row using comp_func to compare the results of inner_func
+  #print(paste("Selecting best row using ", comp_func(inner_func(sub_model_results))))
   best_row <- sub_model_results[comp_func(inner_func(sub_model_results)),]
   
   return(best_row)
-}
-
-q_score_obj <- function(X, Y, df, ncomp) {
-  return(iter_fun(X, Y, df, ncomp, function(x) x$max_q_score, which.max, "q-score"))
 }
 
 vi_objective <- function(X,Y,df,ncomp) {
@@ -109,15 +105,16 @@ vi_objective <- function(X,Y,df,ncomp) {
   res_df <- eval_vars(X, Y, df, min(ncomp, length(X)-2), res_df$least_vi, "q-score")
   return(res_df)
 }
-
 vi_aic_objective <- function(X,Y,df,ncomp) {
   res_df <- eval_vars(X, Y, df, min(ncomp, length(X)-2), NULL, "aic")
   res_df <- eval_vars(X, Y, df, min(ncomp, length(X)-2), res_df$least_vi, "aic")
   return(res_df)  
 }
-
+q_score_obj <- function(X, Y, df, ncomp) {
+  return(iter_fun(X, Y, df, ncomp, function(x) x$max_q_score, which.max, "q-score"))
+}
 aic_objective <- function(X,Y,df,ncomp) {
-  return(iter_fun(X, Y, df, ncomp, function(x) x$aic, which.min, "aic"))
+  return(iter_fun(X, Y, df, ncomp, function(x) x$min_aic, which.min, "aic"))
 }
 
 get_best_vars <- function(X, Y, df, ncomp=5, objective="q-score") {
@@ -129,12 +126,18 @@ get_best_vars <- function(X, Y, df, ncomp=5, objective="q-score") {
   
   # define a dataframe with columns X, Y, qscore, ncomp
   model_results <- get_blank_df()
+  # get the initial model results
   model_results <- rbind(model_results, eval_vars(X, Y, df, ncomp))
   while (length(X) > 3)
   {
+    # find the variable to remove using obj_fun, remove it, and get the results
     new_row <- obj_fun(X,Y,df,ncomp)
     if (nrow(new_row) != 1) {
+      # this is bad if it happens, because it means that the objective
+      # function is returning multiple rows, which shouldn't happen
       print(c("binding new row of length", length(new_row)))
+      print(objective)
+      print(X, ncomp)
       print(new_row)
       stop()
     }
@@ -200,21 +203,21 @@ get_best_vars_generic <- function(X, Y, df, ncomp=5, reduce_model="vi", overall_
 {
   order <- c(overall_obj, reduce_model)
   
-  
-  print(c("Getting best vars for ", order[1]))
+  print(c("Computing best vars using", order[1]))
   results_1 <- get_best_vars(X, Y, df, ncomp, order[1])
-  print(c("Getting best vars for ", order[2]))
+  print(c("Computing best vars using", order[2]))
   results_2 <- get_best_vars(X, Y, df, ncomp, order[2])
-  print(c("Getting best vars for both using", overall_obj))
+  print(c("Selecting best vars for union of above results using", overall_obj))
   if (overall_obj == "q-score") {
     best_1 <- results_1[which.max(results_1$max_q_score),]
     best_2 <- results_2[which.max(results_2$max_q_score),]
   } else if (overall_obj == "aic") {
-    best_1 <- results_1[which.min(results_1$aic),]
-    best_2 <- results_2[which.min(results_2$aic),]
+    best_1 <- results_1[which.min(results_1$min_aic),]
+    best_2 <- results_2[which.min(results_2$min_aic),]
   } else {
     stop("overall_obj must be 'q-score' or 'aic'")
   }
+  
   
   # create the union of the variables
   print("taking union of variables")
@@ -228,7 +231,7 @@ get_best_vars_generic <- function(X, Y, df, ncomp=5, reduce_model="vi", overall_
   if (overall_obj == "q-score") {
     best_both <- best_model_reduce[which.max(best_model_reduce$max_q_score),]
   } else if (overall_obj == "aic") {
-    best_both <- best_model_reduce[which.min(best_model_reduce$aic),]
+    best_both <- best_model_reduce[which.min(best_model_reduce$min_aic),]
   } else {
     stop("overall_obj must be 'q-score' or 'aic'")
   }
@@ -255,7 +258,7 @@ get_best_vars_generic <- function(X, Y, df, ncomp=5, reduce_model="vi", overall_
     if (overall_obj == "q-score") {
       best_row <- sub_model_results[which.max(sub_model_results$max_q_score),]
     } else if (overall_obj == "aic") {
-      best_row <- sub_model_results[which.min(sub_model_results$aic),]
+      best_row <- sub_model_results[which.min(sub_model_results$min_aic),]
     } else {
       stop("overall_obj must be 'q-score' or 'aic'")
     }
@@ -268,12 +271,12 @@ get_best_vars_generic <- function(X, Y, df, ncomp=5, reduce_model="vi", overall_
   if (overall_obj == "q-score") {
     best_row <- additive_model_results[which.max(additive_model_results$max_q_score),]
   } else if (overall_obj == "aic") {
-    best_row <- additive_model_results[which.min(additive_model_results$aic),]
+    best_row <- additive_model_results[which.min(additive_model_results$min_aic),]
   } else {
     stop("overall_obj must be 'q-score' or 'aic'")
   }
   print(c("max q-score from additive model:", best_row$max_q_score))
-  print(c("max aic from additive model:", best_row$aic))
+  print(c("max aic from additive model:", best_row$min_aic))
   print(c("additive model vars unique from",reduce_model,"model:", paste(setdiff(strsplit(best_row$X, "\\+")[[1]], x_2), collapse="+")))
   
   return(list(results_1, results_2, best_model_reduce, additive_model_results))
