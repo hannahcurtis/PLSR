@@ -1,0 +1,242 @@
+---
+title: "PLSR_clean"
+author: "Hannah Curtis"
+date: "2024-05-06"
+output: html_document
+---
+
+Running PLSR for green infrastructure data using find_best_model algorithm that selects variables based on VIP scores/AIC values. Response variable is infiltration rate of 182 biofilters in WI and surrounding states. 
+
+Updated: 7/15/24
+
+read in variable file
+```{r}
+library(vip)
+library(caret)
+library("corrr")
+library(ggcorrplot)
+library("FactoMineR")
+library("factoextra")
+library("car")
+library("pls")
+library("plsdepot")
+library(ggplot2)
+library(tidyr)
+library(dplyr)
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(stats)
+
+df_all <- read.csv("lm_data_all.csv")
+df_pred_removed <- read.csv("lm_data_na_predictors_removed.csv")
+df_res_removed <- read.csv("lm_data_na_responses_removed_ln.csv")
+```
+
+Calculate z-scores and remove outliers (may want to run this for predictor variables to check outliers)
+```{r}
+# Write a function to calculate z-scores for each variable in the df_storm dataframe and remove any row of the data frame where the z-score is above 3 or below -3
+# I only want to calculate the z-scores of certain variables in the dataframe when considering outliers
+remove_outliers <- function(df) {
+  # Calculate z-scores for each variable in the dataframe
+  z_scores <- scale(df[, c("Area",	"Contributing.area",	"Drainage.Area.Ratio",	"Age",	"Ponding.depth",	"Inlet.condition",	"Outlet.condition",	"Underdrain", "X..Residential", "X..Commercial", "X..Industrial", "X..Institutional", "X..Vegetation_shrub",	"X..Vegetation_tree",	"X..Vegetation_grass",	"X..Vegetation_prairie",	"X..Vegetation_bare",  "X..Vegetation_other",	"Underlying.soil_..sand",	"Underlying.soil_..silt",	"Underlying.soil_..clay",	"Underlying.soil_..urban.disturbed",	"Underlying.soil_..other.undefined",	"Underlying.soil_..organic.matter",	"Evidence.of.poor.infiltration",	"X..of.surface.with.poor.infiltration",	"Vegetation.condition",	"Inlet.feature_Curb.Cut",	"Inlet.feature_Overland.Flow",	"Inlet.feature_Pipe",	"Outlet.feature_Overland.Flow", "Outlet.feature_Pipe",	"Outlet.feature_Riser.Pipe",	"Engineered.soil.depth",	"Engineered.soil._..sand",	"Engineered.soil._..silt",	"Engineered.soil._..clay",	"Engineered.soil._..compost",	"Engineered.soil._..other")])
+  
+  # Remove any row of the data frame where the z-score is above 3 or below -3
+  df <- df[apply(z_scores, 1, function(x) all(abs(x) < 3)), ]
+  
+  return(df)
+}
+
+df_pred_outliers_removed <- remove_outliers(df_res_removed)
+```
+
+Remove Infiltration Rate Outliers 
+```{r}
+# Write a function to calculate z-scores for each variable in the df_storm dataframe and remove any row of the data frame where the z-score is above 3 or below -3
+# I only want to calculate the z-scores of certain variables in the dataframe when considering outliers
+inf_outliers <- function(df) {
+  # Calculate z-scores for each variable in the dataframe
+  z_scores <- scale(df[, c("Average.infiltration.rate")])
+  
+  # Remove any row of the data frame where the z-score is above 3 or below -3
+  df <- df[apply(z_scores, 1, function(x) all(abs(x) < 3)), ]
+  
+  return(df)
+}
+
+df_outliers_removed <- inf_outliers(df_res_removed)
+```
+
+Infiltration Rate:
+```{r}
+source("find_best_model.R")
+df <- df_res_removed
+
+y = c("Average.infiltration.rate")
+X = c("Area",	"Contributing.area",	"Drainage.Area.Ratio",	"Age",	"Ponding.depth",	"Inlet.condition",	"Outlet.condition",	"Underdrain", "X..Residential", "X..Commercial", "X..Industrial", "X..Institutional", "X..Vegetation_shrub",	"X..Vegetation_tree",	"X..Vegetation_grass",	"X..Vegetation_prairie",	"X..Vegetation_bare",  "X..Vegetation_other",	"Underlying.soil_..sand",	"Underlying.soil_..silt",	"Underlying.soil_..clay",	"Underlying.soil_..urban.disturbed",	"Underlying.soil_..other.undefined",	"Underlying.soil_..organic.matter",	"Evidence.of.poor.infiltration",	"X..of.surface.with.poor.infiltration",	"Vegetation.condition",	"Inlet.feature_Curb.Cut",	"Inlet.feature_Overland.Flow",	"Inlet.feature_Pipe",	"Outlet.feature_Overland.Flow", "Outlet.feature_Pipe",	"Outlet.feature_Riser.Pipe",	"Engineered.soil.depth",	"Engineered.soil._..sand",	"Engineered.soil._..silt",	"Engineered.soil._..clay",	"Engineered.soil._..compost",	"Engineered.soil._..other")
+output_df <- get_best_vars_generic(X,y,df,reduce_model="vi", overall_obj="q-score")
+output_df
+
+```
+Testing PLSR
+```{r}
+
+# make this example reproducible
+set.seed(0)
+
+# Predictor vars candidates to add back in: Area+Contributing.area+Drainage.Area.Ratio+Age+Ponding.depth+Inlet.condition+Outlet.condition+Underdrain+X..Residential+X..Commercial+X..Industrial+X..Institutional+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_bare+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Underlying.soil_..clay+Underlying.soil_..urban.disturbed+Underlying.soil_..other.undefined+Underlying.soil_..organic.matter+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Vegetation.condition+Inlet.feature_Curb.Cut+Inlet.feature_Other+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Other+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil.depth+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
+
+model <- plsr(Average.infiltration.rate ~ 	Drainage.Area.Ratio+Ponding.depth+Underdrain+X..Residential+X..Industrial+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..organic.matter+Evidence.of.poor.infiltration+Inlet.feature_Curb.Cut+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..compost
+,
+  data=df_res_removed, scale=TRUE, validation="CV", segments = 5, ncomp=3
+)
+
+# RMSEP and % variance explained
+summary(model)
+
+# Extract coefficients
+coefficients <- coef(model)
+
+# visualize cross-validation plots
+validationplot(model)
+validationplot(model, val.type="MSEP")
+#validationplot(model, val.type="R2")
+
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+
+# Plot predicted vs measured using first 3 components
+plot(model, ncomp=2, line=TRUE, main="",  xlab="Measured Infiltration Rate", ylab="Predicted Infiltration Rate", pch = 16, col = "salmon", bg="transparent", cex.axis=1)
+grid()
+
+# R-squared
+print(pls::R2(model))
+#print(Q2(model))
+
+vi(model, ncomp=8)
+coefs <- coef(model)
+
+# Predict the response variable
+predicted_values <- predict(model)
+
+# AIC
+#get_aic(model)
+
+```
+
+Linear Regressions:
+```{r}
+x <- df_res_removed$Drainage.Area.Ratio
+  
+poly_model <- lm(df_res_removed$Average.infiltration.rate ~ poly(x,2))
+plot(x, df_res_removed$Average.infiltration.rate, pch = 16, col = "seagreen3", xlab="Drainage Area Ratio", ylab="Average Infiltration Rate", bg="transparent", cex.axis=1)
+grid()
+
+summary(poly_model)
+
+#use model to get predicted values
+pred <- predict(poly_model)
+ix <- sort(x, index.return=T)$ix
+
+#add polynomial curve to plot
+lines(x[ix], pred[ix], col='black', lwd=2)
+```
+
+PLSR Test
+```{r}
+x <- seq(1, 100)
+y <- sqrt(x)
+
+model <- plsr(y ~ x)
+
+# RMSEP and % variance explained
+summary(model)
+
+# Extract coefficients
+coefficients <- coef(model)
+
+# visualize cross-validation plots
+validationplot(model)
+validationplot(model, val.type="MSEP")
+#validationplot(model, val.type="R2")
+
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+
+# Plot predicted vs measured using first 3 components
+plot(model, ncomp=1, line=TRUE, main="",  xlab="Measured Infiltration Rate", ylab="Predicted Infiltration Rate", pch = 16, col = "salmon", bg="transparent", cex.axis=1)
+grid()
+
+# R-squared
+print(pls::R2(model))
+#print(Q2(model))
+
+infil_vip <- vi(model, ncomp=8)
+coefs <- coef(model)
+
+# Predict the response variable
+predicted_values <- predict(model)
+
+```
+
+Bar Charts
+```{r}
+# Assuming infil_vip is your vector of VIP scores
+infil_vip_df <- data.frame(variable = infil_vip$Variable, VIP_score = infil_vip$Importance)
+
+# Arrange data frame from highest to lowest VIP scores
+#infil_vip_df %>% arrange(desc(VIP_score))
+infil_vip_df_desc <- arrange(infil_vip_df, -VIP_score)
+
+# Add variable type as column to data frame
+# Create a vector of variable types corresponding to each variable
+#variable_types <- c("HYD", "ED", "WS", "HYD", "HYD", "WS", "ED", "ED", "ED", "HYD", "ED", "HYD", "HYD", "HYD", "ED", "ED")  # Adjust with your actual variable types
+
+# Add alphabetical column to data frame so that bar chart will be plotted correctly
+# Create an alphabetical vector
+alphabet <- c("V", "U", "T", "S", "R", "Q", "P", "O", "N", "M", "L", "K", "J", "I", "H", "G", "F", "E", "D", "C", "B", "A")
+
+# Add the variable type column to infil_vip_df
+#infil_vip_df$type <- variable_types
+
+# Sort the data frame by variable type
+#infil_vip_df %>% arrange(type)
+#infil_vip_df_grouped <- arrange(infil_vip_df, type)
+
+# Add alphabetical column to data frame
+infil_vip_df$alphabet <- alphabet
+
+# Create custom labels for y axis that are the same as the infil_vip_df_grouped$variable column and in the same order
+custom_labels <- c("% Vegetation Other", "Engineered Soil % Compost", "% Vegetation Prairie", "Drainage Area Ratio", "Engineered Soil % Clay", "Pipe Inlet Feature", "% of Surface with Poor Infiltration", "% Vegetation Shrub", "Evidence of Poor Infiltration", "% Industrial", "Underlying Soil % Silt", "Underlying Soil % Sand", "Underdrain", "% Vegetation Grass", "% Residential", "Engineered Soil % Other", "Inlet Condition", "Pipe Outlet Feature", "Overland Flow Outlet Feature", "Riser Pipe Outlet Feature", "Overland Flow Inlet Feature", "% Vegetation Tree")
+ 
+
+# Create a custom_labels vector that is the same as above but switch the order of all of the labels so the last one above is the first in this vector, etc.
+custom_labels <- rev(custom_labels)
+
+# Plot the sideways bar chart by alphabet column to get the variables grouped by type and sorted by VIP score within each type
+ggplot(infil_vip_df_desc, aes(x = VIP_score, y = alphabet, fill = VIP_score)) +
+  geom_bar(stat = "identity") +
+  scale_fill_gradient(low = "white", high = "limegreen", name = "VIP Score") +
+  scale_y_discrete(labels = custom_labels) +
+  labs(x = "VIP Score", y = "") +
+  theme(axis.text.y = element_text(angle = 0, hjust = 1, size = 12)) 
+  #annotate(geom="text", x=1.6, y=1.5, label="Hydrologic Variables")
+```
+
+All vars: Area+Contributing.area+Drainage.Area.Ratio+Age+Ponding.depth+Inlet.condition+Outlet.condition+Underdrain+X..Residential+X..Commercial+X..Industrial+X..Institutional+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_bare+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Underlying.soil_..clay+Underlying.soil_..urban.disturbed+Underlying.soil_..other.undefined+Underlying.soil_..organic.matter+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Vegetation.condition+Inlet.feature_Curb.Cut+Inlet.feature_Other+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Other+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil.depth+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
+
+Have to delete: Inlet.feature_Other, Outlet.feature_Other
+
+VI, Q2: Drainage.Area.Ratio+Inlet.condition+Underdrain+X..Residential+X..Industrial+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
+
+VI_AIC, Q2: Area+Drainage.Area.Ratio+Ponding.depth+Inlet.condition+Underdrain+X..Residential+X..Industrial+X..Institutional+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Underlying.soil_..other.undefined+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil._..silt+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
+
+VI, AIC: Drainage.Area.Ratio+X..Vegetation_shrub+X..Vegetation_other+Engineered.soil._..compost
+
+VI_AIC, AIC: Drainage.Area.Ratio+X..Vegetation_shrub+X..Vegetation_other+Engineered.soil._..compost
+
+Best manual model: X..Residential+Drainage.Area.Ratio+X..Vegetation_shrub+X..Vegetation_other+Engineered.soil._..compost+X..Vegetation_tree+X..Vegetation_prairie+Underlying.soil_..sand+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Outlet.feature_Pipe+X..Vegetation_grass
+
+Response outliers removed: Area+Drainage.Area.Ratio+Inlet.condition+Outlet.condition+Underdrain+X..Commercial+X..Vegetation_shrub+X..Vegetation_other+Underlying.soil_..sand+Evidence.of.poor.infiltration+Outlet.feature_Pipe+Engineered.soil.depth+Engineered.soil._..compost
+
+Predictor vars removed: Contributing.area+Drainage.Area.Ratio+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_bare+X..Vegetation_other+Underlying.soil_..silt+Engineered.soil._..compost+Engineered.soil._..other
