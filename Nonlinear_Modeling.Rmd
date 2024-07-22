@@ -1,0 +1,34 @@
+---
+title: "Nonlinear_Modeling"
+output: html_document
+date: "2024-07-22"
+---
+
+```{r}
+library(mgcv)
+library(splines)
+
+df_all <- read.csv("lm_data_all.csv")
+df_pred_removed <- read.csv("lm_data_na_predictors_removed.csv")
+df_res_removed <- read.csv("lm_data_na_responses_removed_ln.csv")
+```
+
+GAM
+```{r}
+#s(Area) + s(Contributing.area) + s(Drainage.Area.Ratio) + s(Age) + s(Ponding.depth) + s(Inlet.condition) + s(Outlet.condition) + s(Underdrain) + s(X..Residential) + s(X..Commercial) + s(X..Industrial) + s(X..Institutional) + s(X..Vegetation_shrub) + s(X..Vegetation_tree) + s(X..Vegetation_grass) + s(X..Vegetation_prairie) + s(X..Vegetation_bare) + s(X..Vegetation_other) + s(Underlying.soil_..sand) + s(Underlying.soil_..silt) + s(Underlying.soil_..clay) + s(Underlying.soil_..urban.disturbed) + s(Underlying.soil_..other.undefined) + s(Underlying.soil_..organic.matter) + s(Evidence.of.poor.infiltration) + s(X..of.surface.with.poor.infiltration) + s(Vegetation.condition) + s(Inlet.feature_Curb.Cut) + s(Inlet.feature_Overland.Flow) + s(Inlet.feature_Pipe) + s(Outlet.feature_Overland.Flow) + s(Outlet.feature_Pipe) + s(Outlet.feature_Riser.Pipe) + s(Engineered.soil.depth) + s(Engineered.soil._..sand) + s(Engineered.soil._..silt) + s(Engineered.soil._..clay) + s(Engineered.soil._..compost) + s(Engineered.soil._..other)
+
+y <- df_res_removed$Average.infiltration.rate
+# Only used predictor vars that didn't give error: A term has fewer unique covariate combinations than specified maximum degrees of freedom
+gam_model <- gam(y ~ s(Area) + s(Contributing.area) + s(Drainage.Area.Ratio)+ s(Age) + s(Ponding.depth)+ s(X..Residential) + s(X..Commercial) + s(X..Institutional) + s(X..Vegetation_shrub) + s(X..Vegetation_tree) + s(X..Vegetation_grass) + s(X..Vegetation_prairie)+ s(X..Vegetation_other) +  s(Underlying.soil_..sand) + s(Underlying.soil_..silt) + s(Underlying.soil_..clay) + s(Underlying.soil_..urban.disturbed) + s(Underlying.soil_..other.undefined) + s(Underlying.soil_..organic.matter) + s(Engineered.soil.depth) + s(Engineered.soil._..sand) + s(Engineered.soil._..silt) + s(Engineered.soil._..clay) + s(Engineered.soil._..compost) + s(Engineered.soil._..other), data = df_res_removed)
+
+summary(gam_model)
+
+plot(gam_model)
+```
+Spline Regression
+```{r}
+y <- df_res_removed$Average.infiltration.rate
+
+spline_model <- lm(y )
+```
+
