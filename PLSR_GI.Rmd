@@ -27,10 +27,74 @@ library(tidyverse)
 library(knitr)
 library(kableExtra)
 library(stats)
+library(corrplot)
 
 df_all <- read.csv("lm_data_all.csv")
 df_pred_removed <- read.csv("lm_data_na_predictors_removed.csv")
-df_res_removed <- read.csv("lm_data_na_responses_removed_ln.csv")
+df_res_removed <- read.csv("lm_data_na_responses_removed.csv")
+df_subset <- read.csv("lm_data_all_subset.csv")
+df_subset_res_removed <- read.csv("lm_data_all_subset_res_removed.csv")
+```
+
+Correlation Matrix
+```{r}
+cor_matrix <- cor(df_res_removed[4:44])
+corrplot(cor_matrix, method = "color",  tl.col = "black", tl.srt = 45, tl.cex = 0.5,title = "Correlation Matrix")
+```
+
+PCA of predictor variables--Add PCs to data frame
+```{r}
+# Run PCA
+# Areas
+pca_area <- prcomp(df_res_removed[4:6], scale=TRUE, center=TRUE)
+summary(pca_area)
+# Extract PCA1
+first_pc_area <- pca_area$x[, 1]
+
+# Watershed Land Use
+pca_landuse <- prcomp(df_res_removed[12:15], scale=TRUE, center=TRUE)
+summary(pca_landuse)
+# Extract PCA1
+first_pc_landuse <- pca_landuse$x[, 1]
+
+# Vegetation Type
+pca_veg <- prcomp(df_res_removed[16:21], scale=TRUE, center=TRUE)
+summary(pca_veg)
+# Extract PCA1
+first_pc_veg <- pca_veg$x[, 1]
+
+# Underlying Soil
+pca_soil <- prcomp(df_res_removed[22:27], scale=TRUE, center=TRUE)
+summary(pca_soil)
+# Extract PCA1
+first_pc_soil <- pca_soil$x[, 1]
+
+# Engineered Soil
+pca_engsoil <- prcomp(df_res_removed[39:44], scale=TRUE, center=TRUE)
+summary(pca_engsoil)
+# Extract PCA1
+first_pc_engsoil <- pca_engsoil$x[, 1]
+
+# Poor Infiltration
+pca_poorinf <- prcomp(df_res_removed[28:29], scale=TRUE, center=TRUE)
+summary(pca_poorinf)
+# Extract PCA1
+first_pc_poorinf <- pca_poorinf$x[, 1]
+
+# Inlet Type
+pca_inlet <- prcomp(df_res_removed[31:34], scale=TRUE, center=TRUE)
+summary(pca_inlet)
+# Extract PCA1
+first_pc_inlet <- pca_inlet$x[, 1]
+
+# Outlet Type
+pca_outlet <- prcomp(df_res_removed[35:38], scale=TRUE, center=TRUE)
+summary(pca_outlet)
+# Extract PCA1
+first_pc_outlet <- pca_outlet$x[, 1]
+
+# Bind PCA1 to dataframe
+df_with_pc <- cbind(df_res_removed, Area_PC = first_pc_area, LandUse_PC = first_pc_landuse, Veg_PC = first_pc_veg, Soil_PC = first_pc_soil, EngSoil_PC = first_pc_engsoil, PoorInf_PC = first_pc_poorinf, Inlet_PC = first_pc_inlet, Outlet_PC = first_pc_outlet )
 ```
 
 Calculate z-scores and remove outliers (may want to run this for predictor variables to check outliers)
@@ -69,12 +133,12 @@ df_outliers_removed <- inf_outliers(df_res_removed)
 
 Infiltration Rate:
 ```{r}
-source("find_best_model.R")
-df <- df_res_removed
+source("find_best_model_GI.R")
+df <- df_with_pc
 
 y = c("Average.infiltration.rate")
-X = c("Area",	"Contributing.area",	"Drainage.Area.Ratio",	"Age",	"Ponding.depth",	"Inlet.condition",	"Outlet.condition",	"Underdrain", "X..Residential", "X..Commercial", "X..Industrial", "X..Institutional", "X..Vegetation_shrub",	"X..Vegetation_tree",	"X..Vegetation_grass",	"X..Vegetation_prairie",	"X..Vegetation_bare",  "X..Vegetation_other",	"Underlying.soil_..sand",	"Underlying.soil_..silt",	"Underlying.soil_..clay",	"Underlying.soil_..urban.disturbed",	"Underlying.soil_..other.undefined",	"Underlying.soil_..organic.matter",	"Evidence.of.poor.infiltration",	"X..of.surface.with.poor.infiltration",	"Vegetation.condition",	"Inlet.feature_Curb.Cut",	"Inlet.feature_Overland.Flow",	"Inlet.feature_Pipe",	"Outlet.feature_Overland.Flow", "Outlet.feature_Pipe",	"Outlet.feature_Riser.Pipe",	"Engineered.soil.depth",	"Engineered.soil._..sand",	"Engineered.soil._..silt",	"Engineered.soil._..clay",	"Engineered.soil._..compost",	"Engineered.soil._..other")
-output_df <- get_best_vars_generic(X,y,df,reduce_model="vi", overall_obj="q-score")
+X = c("Area",	"Contributing.area",	"Drainage.Area.Ratio",	"Age",	"Ponding.depth",	"Inlet.condition",	"Outlet.condition",	"Underdrain", "X..Residential", "X..Commercial", "X..Industrial", "X..Institutional", "X..Vegetation_shrub",	"X..Vegetation_tree",	"X..Vegetation_grass",	"X..Vegetation_prairie",	"X..Vegetation_bare",  "X..Vegetation_other",	"Underlying.soil_..sand",	"Underlying.soil_..silt",	"Underlying.soil_..clay",	"Underlying.soil_..urban.disturbed",	"Underlying.soil_..other.undefined",	"Underlying.soil_..organic.matter",	"Evidence.of.poor.infiltration",	"X..of.surface.with.poor.infiltration",	"Vegetation.condition",	"Inlet.feature_Curb.Cut",	"Inlet.feature_Overland.Flow",	"Inlet.feature_Pipe",	"Outlet.feature_Overland.Flow", "Outlet.feature_Pipe",	"Outlet.feature_Riser.Pipe",	"Engineered.soil.depth",	"Engineered.soil._..sand",	"Engineered.soil._..silt",	"Engineered.soil._..clay",	"Engineered.soil._..compost",	"Engineered.soil._..other","Area_PC", "LandUse_PC", "Veg_PC", "Soil_PC", "PoorInf_PC", "Inlet_PC", "Outlet_PC", "EngSoil_PC")
+output_df <- get_best_vars_generic(X,y,df,reduce_model="vi", overall_obj="aic")
 output_df
 
 ```
@@ -84,11 +148,15 @@ Testing PLSR
 # make this example reproducible
 set.seed(0)
 
-# Predictor vars candidates to add back in: Area+Contributing.area+Drainage.Area.Ratio+Age+Ponding.depth+Inlet.condition+Outlet.condition+Underdrain+X..Residential+X..Commercial+X..Industrial+X..Institutional+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_bare+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Underlying.soil_..clay+Underlying.soil_..urban.disturbed+Underlying.soil_..other.undefined+Underlying.soil_..organic.matter+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Vegetation.condition+Inlet.feature_Curb.Cut+Inlet.feature_Other+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Other+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil.depth+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
+# Predictor vars candidates to add back in: 
+# Area+Contributing.area+Drainage.Area.Ratio+Age+Ponding.depth+Inlet.condition+Outlet.condition+Underdrain+X..Residential+X..Commercial+X..Industrial+X..Institutional+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_bare+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Underlying.soil_..clay+Underlying.soil_..urban.disturbed+Underlying.soil_..other.undefined+Underlying.soil_..organic.matter+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Vegetation.condition+Inlet.feature_Curb.Cut+Inlet.feature_Other+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Other+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil.depth+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
 
-model <- plsr(Average.infiltration.rate ~ 	Drainage.Area.Ratio+Ponding.depth+Underdrain+X..Residential+X..Industrial+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..organic.matter+Evidence.of.poor.infiltration+Inlet.feature_Curb.Cut+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..compost
+# Categorical vars: Underdrain+Evidence.of.poor.infiltration+Inlet.feature_Curb.Cut+Inlet.feature_Other+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Other+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe
+
+model <- plsr(Average.infiltration.rate ~ 	
+Area+Contributing.area+Drainage.Area.Ratio+Age+Ponding.depth+Inlet.condition+Outlet.condition+Underdrain+X..Residential+X..Commercial+X..Industrial+X..Institutional+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_bare+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Underlying.soil_..clay+Underlying.soil_..urban.disturbed+Underlying.soil_..other.undefined+Underlying.soil_..organic.matter+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Vegetation.condition+Inlet.feature_Curb.Cut+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil.depth+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other+Area_PC +LandUse_PC+Veg_PC+Soil_PC +PoorInf_PC+Inlet_PC+Outlet_PC+EngSoil_PC 
 ,
-  data=df_res_removed, scale=TRUE, validation="CV", segments = 5, ncomp=3
+  data=df_with_pc, scale=TRUE, validation="CV", segments=5,  ncomp=4
 )
 
 # RMSEP and % variance explained
@@ -106,7 +174,7 @@ validationplot(model, val.type="MSEP")
 par(pty="s")
 
 # Plot predicted vs measured using first 3 components
-plot(model, ncomp=2, line=TRUE, main="",  xlab="Measured Infiltration Rate", ylab="Predicted Infiltration Rate", pch = 16, col = "salmon", bg="transparent", cex.axis=1)
+plot(model, ncomp=4, line=TRUE, main="",  xlab="Measured Infiltration Rate", ylab="Predicted Infiltration Rate", pch = 16, col = "salmon", bg="transparent", cex.axis=1)
 grid()
 
 # R-squared
@@ -142,42 +210,6 @@ ix <- sort(x, index.return=T)$ix
 lines(x[ix], pred[ix], col='black', lwd=2)
 ```
 
-PLSR Test
-```{r}
-x <- seq(1, 100)
-y <- sqrt(x)
-
-model <- plsr(y ~ x)
-
-# RMSEP and % variance explained
-summary(model)
-
-# Extract coefficients
-coefficients <- coef(model)
-
-# visualize cross-validation plots
-validationplot(model)
-validationplot(model, val.type="MSEP")
-#validationplot(model, val.type="R2")
-
-# Make plots square (better to visualize predictions when x and y axes are the same)
-par(pty="s")
-
-# Plot predicted vs measured using first 3 components
-plot(model, ncomp=1, line=TRUE, main="",  xlab="Measured Infiltration Rate", ylab="Predicted Infiltration Rate", pch = 16, col = "salmon", bg="transparent", cex.axis=1)
-grid()
-
-# R-squared
-print(pls::R2(model))
-#print(Q2(model))
-
-infil_vip <- vi(model, ncomp=8)
-coefs <- coef(model)
-
-# Predict the response variable
-predicted_values <- predict(model)
-
-```
 
 Bar Charts
 ```{r}
@@ -225,7 +257,12 @@ ggplot(infil_vip_df_desc, aes(x = VIP_score, y = alphabet, fill = VIP_score)) +
 
 All vars: Area+Contributing.area+Drainage.Area.Ratio+Age+Ponding.depth+Inlet.condition+Outlet.condition+Underdrain+X..Residential+X..Commercial+X..Industrial+X..Institutional+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_bare+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Underlying.soil_..clay+Underlying.soil_..urban.disturbed+Underlying.soil_..other.undefined+Underlying.soil_..organic.matter+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Vegetation.condition+Inlet.feature_Curb.Cut+Inlet.feature_Other+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Other+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil.depth+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
 
+"Area",	"Contributing.area",	"Drainage.Area.Ratio",	"Age",	"Ponding.depth",	"Inlet.condition",	"Outlet.condition",	"Underdrain", "X..Residential", "X..Commercial", "X..Industrial", "X..Institutional", "X..Vegetation_shrub",	"X..Vegetation_tree",	"X..Vegetation_grass",	"X..Vegetation_prairie",	"X..Vegetation_bare",  "X..Vegetation_other",	"Underlying.soil_..sand",	"Underlying.soil_..silt",	"Underlying.soil_..clay",	"Underlying.soil_..urban.disturbed",	"Underlying.soil_..other.undefined",	"Underlying.soil_..organic.matter",	"Evidence.of.poor.infiltration",	"X..of.surface.with.poor.infiltration",	"Vegetation.condition",	"Inlet.feature_Curb.Cut", "Inlet.feature_Other",	"Inlet.feature_Overland.Flow",	"Inlet.feature_Pipe", "Outlet.feature_Other",	"Outlet.feature_Overland.Flow", "Outlet.feature_Pipe",	"Outlet.feature_Riser.Pipe",	"Engineered.soil.depth",	"Engineered.soil._..sand",	"Engineered.soil._..silt",	"Engineered.soil._..clay",	"Engineered.soil._..compost",	"Engineered.soil._..other"
+
 Have to delete: Inlet.feature_Other, Outlet.feature_Other
+
+Hand Selected Vars:Drainage.Area.Ratio+Age+Ponding.depth+Underdrain+X..Residential+X..Commercial+X..Industrial+X..Institutional+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_bare+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Underlying.soil_..clay+Underlying.soil_..urban.disturbed+Underlying.soil_..other.undefined+Underlying.soil_..organic.matter+X..of.surface.with.poor.infiltration+Vegetation.condition+Engineered.soil.depth+Engineered.soil._..sand+Engineered.soil._..silt+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
+
 
 VI, Q2: Drainage.Area.Ratio+Inlet.condition+Underdrain+X..Residential+X..Industrial+X..Vegetation_shrub+X..Vegetation_tree+X..Vegetation_grass+X..Vegetation_prairie+X..Vegetation_other+Underlying.soil_..sand+Underlying.soil_..silt+Evidence.of.poor.infiltration+X..of.surface.with.poor.infiltration+Inlet.feature_Overland.Flow+Inlet.feature_Pipe+Outlet.feature_Overland.Flow+Outlet.feature_Pipe+Outlet.feature_Riser.Pipe+Engineered.soil._..clay+Engineered.soil._..compost+Engineered.soil._..other
 
