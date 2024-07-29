@@ -19,12 +19,23 @@ GAM
 
 y <- df_res_removed$Average.infiltration.rate
 # Only used predictor vars that didn't give error: A term has fewer unique covariate combinations than specified maximum degrees of freedom
-gam_model <- gam(y ~ s(Area) + s(Contributing.area) + s(Drainage.Area.Ratio)+ s(Age) + s(Ponding.depth)+ s(X..Residential) + s(X..Commercial) + s(X..Institutional) + s(X..Vegetation_shrub) + s(X..Vegetation_tree) + s(X..Vegetation_grass) + s(X..Vegetation_prairie)+ s(X..Vegetation_other) +  s(Underlying.soil_..sand) + s(Underlying.soil_..silt) + s(Underlying.soil_..clay) + s(Underlying.soil_..urban.disturbed) + s(Underlying.soil_..other.undefined) + s(Underlying.soil_..organic.matter) + s(Engineered.soil.depth) + s(Engineered.soil._..sand) + s(Engineered.soil._..silt) + s(Engineered.soil._..clay) + s(Engineered.soil._..compost) + s(Engineered.soil._..other), data = df_res_removed)
+gam_model <- gam(y ~ s(Area) + s(Contributing.area) + Drainage.Area.Ratio+ s(Age) + s(Ponding.depth)+ Inlet.condition + Outlet.condition + Underdrain + X..Residential + s(X..Commercial) + X..Industrial + X..Institutional + s(X..Vegetation_shrub) + X..Vegetation_tree + X..Vegetation_grass + s(X..Vegetation_prairie)+ X..Vegetation_bare + s(X..Vegetation_other) +  Underlying.soil_..sand + Underlying.soil_..silt + Underlying.soil_..clay + Underlying.soil_..urban.disturbed + Underlying.soil_..other.undefined + s(Underlying.soil_..organic.matter) + Evidence.of.poor.infiltration + X..of.surface.with.poor.infiltration + Vegetation.condition + Inlet.feature_Curb.Cut + Inlet.feature_Overland.Flow + Inlet.feature_Pipe + Inlet.feature_Other + Outlet.feature_Overland.Flow + Outlet.feature_Pipe + Outlet.feature_Riser.Pipe + Outlet.feature_Other + Engineered.soil.depth + s(Engineered.soil._..sand) + Engineered.soil._..silt + Engineered.soil._..clay + Engineered.soil._..compost + s(Engineered.soil._..other), data = df_res_removed)
 
 summary(gam_model)
 
 plot(gam_model)
 ```
+Plot GAM Results
+```{r}
+df$predicted_y <- predict(gam_model, newdata = df_res_removed)
+# Make plots square (better to visualize predictions when x and y axes are the same)
+par(pty="s")
+plot(df_res_removed$Average.infiltration.rate, df$predicted_y, main="",  xlab="Measured Infiltration Rate", ylab="Predicted Infiltration Rate", pch = 16, col = "salmon", bg="transparent", cex.axis=1)
+abline(a = 0, b = 1, col = "black")
+grid()
+```
+
+
 Spline Regression
 ```{r}
 y <- df_res_removed$Average.infiltration.rate
