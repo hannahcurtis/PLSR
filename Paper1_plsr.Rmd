@@ -34,11 +34,11 @@ library(stats)
 library(Metrics)
 
 # Data frame including all 20 ponds
-df_all_ponds <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Paper 1 Modeling/all_predictor_vars.csv")
+df_all_ponds <- read.csv("PLSR data/all_predictor_vars.csv")
 # Data frame including 15 ponds original modeling performed on
-df_old_ponds <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Paper 1 Modeling/all_predictor_vars_original_ponds.csv")
+df_old_ponds <- read.csv("PLSR data/all_predictor_vars_original_ponds.csv")
 # Data frame including 5 new ponds
-df_new_ponds <- read.csv("/Users/hannahcurtis/Desktop/School/UWMadison/Research/Data Analysis/Paper 1 Modeling/all_predictor_vars_new_ponds.csv")
+df_new_ponds <- read.csv("PLSR data/all_predictor_vars_new_ponds.csv")
 ```
 
 Run PLSR on all 20 ponds
@@ -313,7 +313,7 @@ Total Nitrogen Difference (Q2=0.27)
 source("find_best_model.R")
 df <- df_old_ponds
 
-y = c("TN.Difference")
+y = c("TN.Change....")
 X = c("Max.Bounce.Norm","Decline.Rate.Norm","Inflow.Rate.Norm","Temp.Variance.Norm","Contant.Water.Level.6in","Outlet.Water.Level","Below.Outlet.Water.Level","Water.Level.25.75.Quantile","Water.Level.10.90.Quantile","Pond.Skewness","Pond.Area.ft2","WA.PA","Res.Time","Avg.Pond.Depth","Max.Pond.Depth","L.to.W.ratio","LF.Outlet.Restrict.Norm","HF.Outlet.Restrict.1","Number.of.Outlets","Pond.Age","Total...Veg.Species","X..Non.native.species.1","Watershed.Area.ft2","Impervious.Percent.Recalc","Commercial.Percent","Residential.Percent","Greenspace.Percent","Curve.Number","Urban.Baseflow","Average.Watershed.Slope","Average.Development.Age","Canopy.Percent","avg_bd..g.cm3.","avg_sed_cm","per_om","Runoff.Depth.Norm", "Comm.Percent.200m.Buffer", "Res.Percent.200m.Buffer", "GS.Percent.200m.Buffer", "Mow.Distance")
 
 ## options for each var:
@@ -358,7 +358,7 @@ Ammonia Difference--need to change number of components in source file from 5 to
 source("find_best_model.R")
 df <- df_old_ponds
 
-y = c("Ammonia.Difference")
+y = c("Ammonia.Change....")
 X = c("Max.Bounce.Norm","Decline.Rate.Norm","Inflow.Rate.Norm","Temp.Variance.Norm","Contant.Water.Level.6in","Outlet.Water.Level","Below.Outlet.Water.Level","Water.Level.25.75.Quantile","Water.Level.10.90.Quantile","Pond.Skewness","Pond.Area.ft2","WA.PA","Res.Time","Avg.Pond.Depth","Max.Pond.Depth","L.to.W.ratio","LF.Outlet.Restrict.Norm","HF.Outlet.Restrict.1","Number.of.Outlets","Pond.Age","Total...Veg.Species","X..Non.native.species.1","Watershed.Area.ft2","Impervious.Percent.Recalc","Commercial.Percent","Residential.Percent","Greenspace.Percent","Curve.Number","Urban.Baseflow","Average.Watershed.Slope","Average.Development.Age","Canopy.Percent","avg_bd..g.cm3.","avg_sed_cm","per_om","Runoff.Depth.Norm", "Comm.Percent.200m.Buffer", "Res.Percent.200m.Buffer", "GS.Percent.200m.Buffer", "Mow.Distance")
 
 ## options for each var:
@@ -388,7 +388,7 @@ TSS Difference (Q2=0.14)
 source("find_best_model.R")
 df <- df_old_ponds
 
-y = c("TSS..Difference")
+y = c("TSS.Change....")
 X = c("Max.Bounce.Norm","Decline.Rate.Norm","Inflow.Rate.Norm","Temp.Variance.Norm","Contant.Water.Level.6in","Outlet.Water.Level","Below.Outlet.Water.Level","Water.Level.25.75.Quantile","Water.Level.10.90.Quantile","Pond.Skewness","Pond.Area.ft2","WA.PA","Res.Time","Avg.Pond.Depth","Max.Pond.Depth","L.to.W.ratio","LF.Outlet.Restrict.Norm","HF.Outlet.Restrict.1","Number.of.Outlets","Pond.Age","Total...Veg.Species","X..Non.native.species.1","Watershed.Area.ft2","Impervious.Percent.Recalc","Commercial.Percent","Residential.Percent","Greenspace.Percent","Curve.Number","Urban.Baseflow","Average.Watershed.Slope","Average.Development.Age","Canopy.Percent","avg_bd..g.cm3.","avg_sed_cm","per_om","Runoff.Depth.Norm", "Comm.Percent.200m.Buffer", "Res.Percent.200m.Buffer", "GS.Percent.200m.Buffer", "Mow.Distance")
 
 ## options for each var:
@@ -403,7 +403,7 @@ DO Difference (Q2=0.25)
 source("find_best_model.R")
 df <- df_old_ponds
 
-y = c("YSI.DO.Difference")
+y = c("YSI.DO.Change....")
 X = c("Max.Bounce.Norm","Decline.Rate.Norm","Inflow.Rate.Norm","Temp.Variance.Norm","Contant.Water.Level.6in","Outlet.Water.Level","Below.Outlet.Water.Level","Water.Level.25.75.Quantile","Water.Level.10.90.Quantile","Pond.Skewness","Pond.Area.ft2","WA.PA","Res.Time","Avg.Pond.Depth","Max.Pond.Depth","L.to.W.ratio","LF.Outlet.Restrict.Norm","HF.Outlet.Restrict.1","Number.of.Outlets","Pond.Age","Total...Veg.Species","X..Non.native.species.1","Watershed.Area.ft2","Impervious.Percent.Recalc","Commercial.Percent","Residential.Percent","Greenspace.Percent","Curve.Number","Urban.Baseflow","Average.Watershed.Slope","Average.Development.Age","Canopy.Percent","avg_bd..g.cm3.","avg_sed_cm","per_om","Runoff.Depth.Norm", "Comm.Percent.200m.Buffer", "Res.Percent.200m.Buffer", "GS.Percent.200m.Buffer", "Mow.Distance")
 
 ## options for each var:
@@ -459,7 +459,7 @@ X = c("Max.Bounce.Norm","Decline.Rate.Norm","Inflow.Rate.Norm","Temp.Variance.No
 ## options for each var:
 ## reduce_model: vi, vi_aic, aic, q-score
 ## overall_obj: q-score, aic
-df = get_best_vars_generic(X,y,df, reduce_model="vi_aic", overall_obj="aic")
+df = get_best_vars_generic(X,y,df, reduce_model="vi", overall_obj="q-score")
 df
 ```
 
@@ -475,7 +475,7 @@ X = c("Max.Bounce.Norm","Decline.Rate.Norm","Inflow.Rate.Norm","Temp.Variance.No
 ## options for each var:
 ## reduce_model: vi, vi_aic, aic, q-score
 ## overall_obj: q-score, aic
-df = get_best_vars_generic(X,y,df, reduce_model="vi_aic", overall_obj="aic")
+df = get_best_vars_generic(X,y,df, reduce_model="vi", overall_obj="q-score")
 df
 ```
 
@@ -500,7 +500,7 @@ Water Clarity Change--need to change number of components from 5 to 4 in source 
 source("find_best_model.R")
 df <- df_old_ponds
 
-y = c("Clar.Late")
+y = c("Secchi.Disk.Change....")
 X = c("Max.Bounce.Norm","Decline.Rate.Norm","Inflow.Rate.Norm","Temp.Variance.Norm","Contant.Water.Level.6in","Outlet.Water.Level","Below.Outlet.Water.Level","Water.Level.25.75.Quantile","Water.Level.10.90.Quantile","Pond.Skewness","Pond.Area.ft2","WA.PA","Res.Time","Avg.Pond.Depth","Max.Pond.Depth","L.to.W.ratio","LF.Outlet.Restrict.Norm","HF.Outlet.Restrict.1","Number.of.Outlets","Pond.Age","Total...Veg.Species","X..Non.native.species.1","Watershed.Area.ft2","Impervious.Percent.Recalc","Commercial.Percent","Residential.Percent","Greenspace.Percent","Curve.Number","Urban.Baseflow","Average.Watershed.Slope","Average.Development.Age","Canopy.Percent","avg_bd..g.cm3.","avg_sed_cm","per_om","Runoff.Depth.Norm", "Comm.Percent.200m.Buffer", "Res.Percent.200m.Buffer", "GS.Percent.200m.Buffer", "Mow.Distance")
 
 ## options for each var:
@@ -549,35 +549,39 @@ train_data <- df_old_ponds
 validation_data <- df_new_ponds
 
 # Fit PLSR model on training data
-plsr_model <- plsr(Attenuation ~Max.Bounce.Norm+Decline.Rate.Norm+Inflow.Rate.Norm+Temp.Variance.Norm+Contant.Water.Level.6in+Outlet.Water.Level+Below.Outlet.Water.Level+Water.Level.25.75.Quantile+Pond.Skewness+Pond.Area.ft2+WA.PA+Res.Time+Avg.Pond.Depth+Max.Pond.Depth+L.to.W.ratio+HF.Outlet.Restrict.1+Number.of.Outlets+Total...Veg.Species+X..Non.native.species.1+Watershed.Area.ft2+Impervious.Percent.Recalc+Residential.Percent+Urban.Baseflow+Average.Watershed.Slope+Canopy.Percent+avg_bd..g.cm3.+avg_sed_cm+per_om+Runoff.Depth.Norm+Comm.Percent.200m.Buffer+Res.Percent.200m.Buffer+GS.Percent.200m.Buffer+Mow.Distance, data = train_data, ncomp = 4, validation = "CV", segments=5)
+pls_model <- plsr(Chloride.Difference ~ Max.Bounce.Norm+Pond.Skewness+Res.Time+HF.Outlet.Restrict.1+Pond.Age+Watershed.Area.ft2+Commercial.Percent+Greenspace.Percent+Curve.Number+Canopy.Percent+avg_sed_cm+Runoff.Depth.Norm+Mow.Distance, data = train_data, ncomp = 2, validation = "CV", segments=5)
 
 # Predict on validation data
-predictions <- predict(plsr_model, newdata = validation_data, ncomp = 4)
-predictions <- as.numeric(predictions)
+test_predictions <- predict(pls_model, newdata = validation_data, ncomp = 2)
+
+# Predict on training data
+train_predictions <- predict(pls_model, newdata = train_data, ncomp = 2)
 
 # Calculate performance metrics
-actual_values <- validation_data$Percent.Days.Outflow
+actual_values <- validation_data$Chloride.Difference
 
 # Make plots square (better to visualize predictions when x and y axes are the same)
 par(pty="s")
 # Plot actual vs predicted values for validation dataset
-plot(actual_values, predictions, xlab = "Actual", ylab = "Predicted", main = "Predicted vs. Actual Percent Days Outflow", pch = 16, col = "dodgerblue2", bg="transparent", cex.axis=1)
+plot(actual_values, test_predictions, xlab = "Actual", ylab = "Predicted", main = "Predicted vs. Actual Attenuation", pch = 16, col = "dodgerblue2", bg="transparent", cex.axis=1)
 grid()
 # Add the line y = x
 abline(a = 0, b = 1, col = "black", lwd = 2)
 
-mse <- mean((predictions - actual_values)^2)
-rmse <- sqrt(mse)
-# Calculate RSS (Residual Sum of Squares)
-rss <- sum((actual_values - predictions)^2)
-# Calculate TSS (Total Sum of Squares)
-tss <- sum((actual_values - mean(actual_values))^2)
-# Calculate R-squared
-r_squared <- 1 - (rss / tss)
+# Example: RMSE for training data
+train_rmse <- rmse(train_data$Chloride.Difference, train_predictions)
+print(paste("Training RMSE:", round(train_rmse, 4)))
 
-cat("MSE:", mse, "\n")
-cat("RMSE:", rmse, "\n")
-cat("R-squared:", r_squared, "\n")
+# Example: R-squared for training data
+train_r2 <- cor(train_data$Chloride.Difference, train_predictions)^2
+print(paste("Training R-squared:", round(train_r2, 4)))
+
+# Calculate performance metrics for testing data
+test_rmse <- rmse(validation_data$Chloride.Difference, test_predictions)
+print(paste("Testing RMSE:", round(test_rmse, 4)))
+
+test_r2 <- cor(validation_data$Chloride.Difference, test_predictions)^2
+print(paste("Testing R-squared:", round(test_r2, 4)))
 ```
 
 Testing PLSR Results: Water Quality
@@ -586,9 +590,9 @@ Testing PLSR Results: Water Quality
 set.seed(0)
 
 # run PLSR
-model <- plsr(SPC.Difference ~ 	Max.Bounce.Norm+Decline.Rate.Norm+Pond.Skewness+HF.Outlet.Restrict.1+X..Non.native.species.1+Runoff.Depth.Norm+GS.Percent.200m.Buffer+Mow.Distance
+model <- plsr(Chloride.Difference ~ Max.Bounce.Norm+Pond.Skewness+Res.Time+HF.Outlet.Restrict.1+Pond.Age+Watershed.Area.ft2+Commercial.Percent+Greenspace.Percent+Curve.Number+Canopy.Percent+avg_sed_cm+Runoff.Depth.Norm+Mow.Distance
 ,
-  data=df_spc, scale=TRUE, validation="CV", segments=5,  ncomp=8
+  data=df_old_ponds, scale=TRUE, validation="CV", segments=5,  ncomp=8
 )
 
 # RMSEP and % variance explained
@@ -606,7 +610,7 @@ validationplot(model, val.type="MSEP")
 par(pty="s")
 
 # Plot predicted vs measured using first 3 components
-plot(model, ncomp=4, line=TRUE, main="",  xlab="Measured SPC Difference", ylab="Predicted SPC Difference", pch = 16, col = "seagreen3", bg="transparent", cex.axis=1)
+plot(model, ncomp=2, line=TRUE, main="",  xlab="Measured SPC Difference", ylab="Predicted SPC Difference", pch = 16, col = "seagreen3", bg="transparent", cex.axis=1)
 grid()
 
 # R-squared
@@ -624,7 +628,7 @@ Testing PLSR Results: Attenuation (check predictor vars--no outlet restrictivene
 set.seed(0)
 
 # run PLSR
-model <- plsr(Attenuation ~ 	Max.Bounce.Norm+Decline.Rate.Norm+Inflow.Rate.Norm+Water.Level.25.75.Quantile+Water.Level.10.90.Quantile+Pond.Skewness+Pond.Area.ft2+WA.PA+Max.Pond.Depth+Number.of.Outlets+Impervious.Percent.Recalc+Greenspace.Percent+Curve.Number+Average.Watershed.Slope+avg_sed_cm+Runoff.Depth.Norm+Res.Percent.200m.Buffer+GS.Percent.200m.Buffer+Mow.Distance
+model <- plsr(Attenuation ~ 	Decline.Rate.Norm+Inflow.Rate.Norm+Water.Level.10.90.Quantile+Pond.Skewness+LF.Outlet.Restrict.Norm+Total...Veg.Species+Curve.Number+avg_sed_cm+Res.Percent.200m.Buffer
 ,
   data=df_old_ponds, scale=TRUE, validation="CV", segments=5,  ncomp=8
 )
