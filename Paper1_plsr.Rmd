@@ -1,0 +1,6 @@
+---
+title: "Paper1_plsr"
+author: "Hannah Curtis"
+date: "2024-07-26"
+output: html_document
+---

@@ -2,7 +2,7 @@ library(vip)
 library(pls)
 
 # function to automatically select the number of variables to use via vip
-run_model <- function(X, Y, df, ncomp=5) {
+run_model <- function(X, Y, df, ncomp=4) {
   set.seed(0)
   
   # fit a PLS model
@@ -10,7 +10,7 @@ run_model <- function(X, Y, df, ncomp=5) {
   return(plsr(formula, data=df, ncomp=ncomp, scale=TRUE, validation="CV", segments=5))
 }
 
-compute_vi <- function(pls_model, ncomp=5) {
+compute_vi <- function(pls_model, ncomp=4) {
   # calculate the vi scores
   vi_df <- data.frame(vi(pls_model, ncomp=ncomp, scale=FALSE))
   
@@ -117,7 +117,7 @@ aic_objective <- function(X,Y,df,ncomp) {
   return(iter_fun(X, Y, df, ncomp, function(x) x$min_aic, which.min, "aic"))
 }
 
-get_best_vars <- function(X, Y, df, ncomp=5, objective="q-score") {
+get_best_vars <- function(X, Y, df, ncomp=4, objective="q-score") {
   if (objective == "q-score") { obj_fun <- q_score_obj }
   else if (objective == "vi") { obj_fun <- vi_objective }
   else if (objective == "vi_aic") { obj_fun <- vi_aic_objective }
@@ -147,7 +147,7 @@ get_best_vars <- function(X, Y, df, ncomp=5, objective="q-score") {
   return(model_results)
 }
 
-get_best_vars_both <- function(X, Y, df, ncomp=5)
+get_best_vars_both <- function(X, Y, df, ncomp=4)
 {
   
   q_score_results <- get_best_vars(X, Y, df, ncomp, "q-score")
@@ -199,7 +199,7 @@ get_best_vars_both <- function(X, Y, df, ncomp=5)
 }
 
 
-get_best_vars_generic <- function(X, Y, df, ncomp=5, reduce_model="vi", overall_obj="q-score")
+get_best_vars_generic <- function(X, Y, df, ncomp=4, reduce_model="vi", overall_obj="q-score")
 {
   order <- c(overall_obj, reduce_model)
   
